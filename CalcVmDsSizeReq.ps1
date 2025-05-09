@@ -1,9 +1,9 @@
 <#
  .SYNOPSIS
-  Estimates the required datastore size for a virtual machine (VM) after changing its memory allocation.
+  Estimates the required Datastore size for a virtual machine (VM) after changing its memory allocation.
 
  .DESCRIPTION
-  This script calculates the required datastore size based on the intended memory allocation and 
+  This script calculates the required Datastore size based on the intended memory allocation and 
   occupancy rate. If the VM does not exist yet (indicated by the -scratch switch), the calculation is 
   based on user-specified disk size and memory size.
   Version: 1.1.0
@@ -18,7 +18,7 @@
 
   Notes:
   - The script does not account for temporary files (e.g., VM swap files), making it suitable for high-level storage planning.
-  - Default datastore occupancy rate is 80% if not provided by the user.
+  - Default Datastore occupancy rate is 80% if not provided by the user.
   - Adjust the "vCenter connection info" section for your environment. These settings are ignored in -scratch mode.
 
  .PARAMETER MemorySize
@@ -28,7 +28,7 @@
   (Alias -n) Mandatory unless -scratch is specified. Specifies the VM name.
 
  .PARAMETER OccupancyRate
-  (Alias -r) Optional. A number between 0 and 1 (e.g., 0.75) representing the desired maximum datastore 
+  (Alias -r) Optional. A number between 0 and 1 (e.g., 0.75) representing the desired maximum Datastore 
   occupancy rate. Defaults to 0.8 if not provided.
 
  .PARAMETER scratch
@@ -36,6 +36,16 @@
 
  .PARAMETER DiskSize
   (Alias -d) Mandatory when -scratch is specified. Specifies the total size of VM disks in GB.
+
+ .EXAMPLE
+  # Calculate the required Datastore size for an existing VM after expanding its memory to 16GB.
+  # Requires a vCenter connection.
+  .\CalcVmDsSizeReq.ps1 -MemorySize 16 -VmName VM001
+
+ .EXAMPLE
+  # Estimate the Datastore size for an imaginary VM with 10GB of memory and a total disk size of 200GB, assuming the total size (disk + memory swap) will fill 85% of the Datastore.
+  # Does not require a vCenter connection. You can optionally add '-VmName NewVM002' for clarity or as a reminder.
+  .\CalcVmDsSizeReq.ps1 -MemorySize 10 -scratch -DiskSize 200 -OccupancyRate 0.85
 #>
 [CmdletBinding()]
 Param(
