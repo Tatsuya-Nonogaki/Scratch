@@ -1,39 +1,41 @@
 <#
  .SYNOPSIS
-  Calculates required datastore size for a VM after increasing its memory.
+  Estimates the required datastore size for a virtual machine (VM) after changing its memory allocation.
 
  .DESCRIPTION
-  This script connects to a vCenter server, locates a specified virtual machine, 
-  and estimates the required datastore size based on the intended memory 
-  expansion and a target datastore occupancy rate. It assumes the VM shares a 
-  dedicated datastore with no other VMs, and uses the formula:  
-   (required size) = (disk size + new memory size) / (occupancy rate).
-  
-  The script does not take into account temporary files such as VM swap files, 
-  and is intended for high-level storage planning.  
+  This script calculates the required datastore size based on the intended memory allocation and 
+  occupancy rate. If the VM does not exist yet (indicated by the -scratch switch), the calculation is 
+  based on user-specified disk size and memory size.
   Version: 1.1.0
-  
-  Note: Adjust the values in the "vCenter connection info" section before use, 
-  however, those are not used when running in -scratch mode (see below).
-  
+
+  The script supports both existing VMs (by connecting to a vCenter server) and hypothetical scenarios 
+  without requiring a working vSphere environment. For existing VMs, it retrieves details such as current 
+  memory, Datastore name and disk usage. For non-existent VMs (using -scratch), the user provides the 
+  necessary inputs for the calculation.
+
+  The calculation uses the formula:
+    (required size) = (disk size + new memory size) / (occupancy rate)
+
+  Notes:
+  - The script does not account for temporary files (e.g., VM swap files), making it suitable for high-level storage planning.
+  - Default datastore occupancy rate is 80% if not provided by the user.
+  - Adjust the "vCenter connection info" section for your environment. These settings are ignored in -scratch mode.
+
  .PARAMETER MemorySize
   (Alias -m) Mandatory. Intended future size of memory in GB.
 
  .PARAMETER VmName
-  (Alias -n) Mandatory unless -scratch is specified. The name of VM.
+  (Alias -n) Mandatory unless -scratch is specified. Specifies the VM name.
 
  .PARAMETER OccupancyRate
-  (Alias -r) Desired maximum Datastore occupancy rate, which must be a number 
-  greater than 0 and less than 1 (e.g., 0.75). This option can be used to 
-  override the default value defined in the script.
+  (Alias -r) Optional. A number between 0 and 1 (e.g., 0.75) representing the desired maximum datastore 
+  occupancy rate. Defaults to 0.8 if not provided.
 
  .PARAMETER scratch
-  Switch option to indicate the VM doesn't exist yet. -DiskSize (below) must 
-  be accompanied with it.
+  Switch. Indicates that the VM does not exist yet. Must be used with -DiskSize.
 
  .PARAMETER DiskSize
-  (Alias -d) Mandatory when -scratch is used. Specifies sum total of the VM 
-  disks in GB. 
+  (Alias -d) Mandatory when -scratch is specified. Specifies the total size of VM disks in GB.
 #>
 [CmdletBinding()]
 Param(
