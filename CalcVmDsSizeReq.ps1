@@ -93,7 +93,7 @@ begin {
 
     if ($PSBoundParameters.ContainsKey('OccupancyRate')) {
         if ($OccupancyRate -le 0 -or $OccupancyRate -ge 1) {
-            throw "Error: -OccupancyRate must be a number greater than 0 and less than 1 (e.g., 0.8)."
+            throw "Error: -OccupancyRate must be a number greater than 0 and less than 1 (e.g., 0.75)."
         }
     } else {
         $OccupancyRate = $storeOccupancyRate
@@ -161,7 +161,6 @@ process {
     }
     else {
         if (! $VmName) { $VmName = "N/A" }
-        $datastore = "N/A"
 
         $currentMemoryGB = 0
         $currentDisksGB = $DiskSize
