@@ -77,7 +77,6 @@ begin {
         exit
     }
 
-    # Validate MemorySize (Mandatory for all cases)
     if (-not $PSBoundParameters.ContainsKey('MemorySize')) {
         throw "Error: -MemorySize is a mandatory parameter and must be specified."
     }
