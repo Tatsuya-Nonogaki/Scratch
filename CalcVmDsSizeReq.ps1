@@ -68,7 +68,7 @@ begin {
     $vcport = 443
     #$vcuser = 'Administrator@vsphere.local'
     #$vcpasswd = 'DonKnow'
-    $connRetry = 1
+    $connRetry = 2
     $connRetryInterval = 2
 
     # Arguments validation
