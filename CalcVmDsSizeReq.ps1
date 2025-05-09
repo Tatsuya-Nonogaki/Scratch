@@ -4,7 +4,7 @@
 
  .DESCRIPTION
   This script connects to a vCenter server, locates a specified virtual machine, 
-  and calculates the required datastore size based on the intended memory 
+  and estimates the required datastore size based on the intended memory 
   expansion and a target datastore occupancy rate. It assumes the VM shares a 
   dedicated datastore with no other VMs, and uses the formula:  
    (required size) = (disk size + new memory size) / (occupancy rate).
@@ -58,6 +58,17 @@ Param(
 )
 
 begin {
+    # Desired maximum Datastore occupancy rate (e.g., 80%)
+    $storeOccupancyRate = 0.8
+    
+    # vCenter connection info
+    $vcserver = 'vcsa1.mydomain.com'
+    $vcport = 443
+    #$vcuser = 'Administrator@vsphere.local'
+    #$vcpasswd = 'DonKnow'
+    $connRetry = 1
+    $connRetryInterval = 2
+
     # Arguments validation
     if ($PSBoundParameters.Count -eq 0) {
         Get-Help $MyInvocation.InvocationName
@@ -69,41 +80,23 @@ begin {
         throw "Error: -MemorySize is a mandatory parameter and must be specified."
     }
 
-    # Validate -scratch and its dependencies
     if ($PSBoundParameters.ContainsKey('scratch')) {
         if (-not $PSBoundParameters.ContainsKey('DiskSize')) {
             throw "Error: -DiskSize must be specified when using -scratch."
         }
     } else {
-        # If not in -scratch mode, VmName is mandatory
         if (-not $PSBoundParameters.ContainsKey('VmName')) {
             throw "Error: -VmName is a mandatory parameter unless -scratch is specified."
         }
     }
 
-    # Validate OccupancyRate (must be between 0 and 1 if specified)
     if ($PSBoundParameters.ContainsKey('OccupancyRate')) {
         if ($OccupancyRate -le 0 -or $OccupancyRate -ge 1) {
             throw "Error: -OccupancyRate must be a number greater than 0 and less than 1 (e.g., 0.8)."
         }
     } else {
-        # Use default occupancy rate if not specified
         $OccupancyRate = $storeOccupancyRate
     }
-
-    # Desired maximum Datastore occupancy rate (e.g., 80%)
-    $storeOccupancyRate = 0.8
-    if ($null -eq $OccupancyRate -or 0 -eq $OccupancyRate) {
-        $OccupancyRate = $storeOccupancyRate
-    }
-    
-    # vCenter connection info
-    $vcserver = 'vcsa1.mydomain.com'
-    $vcport = 443
-    #$vcuser = 'Administrator@vsphere.local'
-    #$vcpasswd = 'DonKnow'
-    $connRetry = 1
-    $connRetryInterval = 2
 }
 
 process {
@@ -140,11 +133,23 @@ process {
         VIConnect
 
         $vm = Get-VM -Name $VmName
+        if ($null -eq $vm) {
+            Write-Host "Error, No such Virtual Machine $VmName" -ForegroundColor Red
+            Disconnect-VIServer -Server $vcserver -Confirm:$false
+            Exit 1
+        }
+
         $datastore = ($vm | Get-Datastore)
+        if ($null -eq $datastore) {
+            Write-Host "Error ocurred while retrieving Datastore information" -ForegroundColor Red
+            Disconnect-VIServer -Server $vcserver -Confirm:$false
+            Exit 1
+        }
 
         # Get current memory and storage specifications
         $currentMemoryGB = $vm.MemoryGB
         $currentDisksGB = ($vm | Get-HardDisk | Measure-Object -Property CapacityGB -Sum).Sum
+        $currentDSName = $($datastore.Name)
         $currentCapacityGB = [math]::Round($datastore.CapacityGB, 2)
 
         # Estimate total required DS size with new memory
@@ -154,11 +159,12 @@ process {
         Disconnect-VIServer -Server $vcserver -Confirm:$false
     }
     else {
-        $vm = "N/A"
+        if (! $VmName) { $VmName = "N/A" }
         $datastore = "N/A"
 
         $currentMemoryGB = 0
         $currentDisksGB = $DiskSize
+        $currentDSName = "N/A"
         $currentCapacityGB = 0
 
         # Estimate total required DS size with new memory
@@ -167,7 +173,7 @@ process {
     }
 
     # Reporting
-    Write-Host "------------------------"
+    Write-Host "-------------------------------"
     Write-Host "VM Name              : $VmName"
     Write-Host "Current Memory Size  : $currentMemoryGB GB"
     Write-Host "New Memory Size      : $MemorySize GB"
@@ -177,10 +183,10 @@ process {
         Write-Host "Current Disk Size    : $currentDisksGB GB"
     }
     Write-Host "Target Occupancy     : $($OccupancyRate * 100)%"
+    Write-Host "Current Datastore    : $currentDSName"
     Write-Host "Current DS Size      : $currentCapacityGB GB"
     Write-Host "Future DS Size Req.  : $futureRequiredGB GB"
     Write-Host "Additional Space Req.: $increaseNeededGB GB"
-    Write-Host "------------------------"
+    Write-Host "-------------------------------"
 
 }
-
