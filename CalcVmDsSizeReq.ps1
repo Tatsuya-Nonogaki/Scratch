@@ -6,7 +6,7 @@
   This script calculates the required Datastore size based on the intended memory allocation and 
   occupancy rate. If the VM does not exist yet (indicated by the -scratch switch), the calculation is 
   based on user-specified disk size and memory size.
-  Version: 1.1.0
+  Version: 1.1.1
 
   The script supports both existing VMs (by connecting to a vCenter server) and hypothetical scenarios 
   without requiring a working vSphere environment. For existing VMs, it retrieves details such as current 
@@ -17,7 +17,7 @@
     (required size) = (disk size + new memory size) / (occupancy rate)
 
   Notes:
-  - The script does not account for temporary files (e.g., VM swap files), making it suitable for high-level storage planning.
+  - The script does not account for temporary files (e.g., log files and snapshots), making it suitable for high-level storage planning.
   - Default Datastore occupancy rate is 80% if not provided by the user.
   - Adjust the "vCenter connection info" section for your environment. These settings are ignored in -scratch mode.
 
@@ -163,10 +163,6 @@ process {
         $currentDSName = $($datastore.Name)
         $currentCapacityGB = [math]::Round($datastore.CapacityGB, 2)
 
-        # Estimate total required DS size with new memory
-        $futureRequiredGB = [math]::Round(($currentDisksGB + $MemorySize) / $OccupancyRate, 2)
-        $increaseNeededGB = [math]::Round($futureRequiredGB - $currentCapacityGB, 2)
-
         Disconnect-VIServer -Server $vcserver -Confirm:$false
     }
     else {
@@ -176,11 +172,11 @@ process {
         $currentDisksGB = $DiskSize
         $currentDSName = "N/A"
         $currentCapacityGB = 0
-
-        # Estimate total required DS size with new memory
-        $futureRequiredGB = [math]::Round(($DiskSize + $MemorySize) / $OccupancyRate, 2)
-        $increaseNeededGB = [math]::Round($futureRequiredGB - $currentCapacityGB, 2)
     }
+
+    # Estimate total required DS size with new memory
+    $futureRequiredGB = [math]::Round(($currentDisksGB + $MemorySize) / $OccupancyRate, 2)
+    $increaseNeededGB = [math]::Round($futureRequiredGB - $currentCapacityGB, 2)
 
     # Reporting
     Write-Host "-------------------------------"
