@@ -64,30 +64,39 @@ begin {
         exit
     }
 
-    if (-not $PSBoundParameters.ContainsKey('DNPath')) {
-        if ($PSBoundParameters.ContainsKey('DCDepth') -and -not $PSBoundParameters.ContainsKey('DNPrefix')) {
-            throw "Error: -DNPrefix must be specified when using -DCDepth."
+    # Validate MemorySize (Mandatory for all cases)
+    if (-not $PSBoundParameters.ContainsKey('MemorySize')) {
+        throw "Error: -MemorySize is a mandatory parameter and must be specified."
+    }
+
+    # Validate -scratch and its dependencies
+    if ($PSBoundParameters.ContainsKey('scratch')) {
+        if (-not $PSBoundParameters.ContainsKey('DiskSize')) {
+            throw "Error: -DiskSize must be specified when using -scratch."
         }
-        if (-not $PSBoundParameters.ContainsKey('DNPrefix')) {
-            throw "Error: One of -DNPath or -DNPrefix is required."
+    } else {
+        # If not in -scratch mode, VmName is mandatory
+        if (-not $PSBoundParameters.ContainsKey('VmName')) {
+            throw "Error: -VmName is a mandatory parameter unless -scratch is specified."
         }
     }
 
-    if ($PSBoundParameters.ContainsKey('DNPath') -and ($PSBoundParameters.ContainsKey('DNPrefix') -or $PSBoundParameters.ContainsKey('DCDepth'))) {
-        throw "Error: -DNPath cannot be used together with -DNPrefix or -DCDepth."
+    # Validate OccupancyRate (must be between 0 and 1 if specified)
+    if ($PSBoundParameters.ContainsKey('OccupancyRate')) {
+        if ($OccupancyRate -le 0 -or $OccupancyRate -ge 1) {
+            throw "Error: -OccupancyRate must be a number greater than 0 and less than 1 (e.g., 0.8)."
+        }
+    } else {
+        # Use default occupancy rate if not specified
+        $OccupancyRate = $storeOccupancyRate
     }
-
 
     # Desired maximum Datastore occupancy rate (e.g., 80%)
     $storeOccupancyRate = 0.8
-
     if ($null -eq $OccupancyRate -or 0 -eq $OccupancyRate) {
         $OccupancyRate = $storeOccupancyRate
-    } elseif ($OccupancyRate -le 0 -or $OccupancyRate -ge 1) {
-        Write-Host "OccupancyRate must be a number greater than 0 and less than 1 (e.g., 0.8)" -ForegroundColor Red
-        Exit 1
     }
-
+    
     # vCenter connection info
     $vcserver = 'vcsa1.mydomain.com'
     $vcport = 443
