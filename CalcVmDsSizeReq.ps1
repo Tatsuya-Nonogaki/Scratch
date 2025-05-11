@@ -151,7 +151,7 @@ process {
         $vm = Get-VM -Name $VmName
         if ($null -eq $vm) {
             Write-Host "Error, No such Virtual Machine $VmName" -ForegroundColor Red
-            Write-Host "Use -offline option with -DiskSize value if you are trying estimation for a VM not yet deployed" -ForegroundColor Red
+            Write-Host "Use -offline option if you are trying estimation for a VM not yet deployed" -ForegroundColor Red
             Disconnect-VIServer -Server $vcserver -Confirm:$false
             Exit 1
         }
