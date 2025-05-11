@@ -4,20 +4,23 @@
 
  .DESCRIPTION
   This script calculates the required Datastore size based on the intended memory allocation and 
-  occupancy rate. If the VM does not exist yet (indicated by the -offline switch), the calculation is 
-  based on user-specified disk size and memory size.
+  occupancy rate. If the VM does not exist (indicated by the -offline switch), the calculation is 
+  based on user-specified disk size and memory size. However, the -offline mode can also be used 
+  for existing VMs when estimating storage requirements without connecting to a vCenter server.
+
   Version: 1.1.2
 
-  The script supports both existing VMs (by connecting to a vCenter server) and hypothetical scenarios 
-  without requiring a working vSphere environment. For existing VMs, it retrieves details such as current 
-  memory, Datastore name and disk usage. For non-existent VMs (using -offline), the user provides the 
-  necessary inputs for the calculation.
+  The script supports both connected and offline scenarios. For connected scenarios, it retrieves 
+  details such as current memory, Datastore name, and disk usage from a vCenter server. For offline 
+  scenarios (using -offline), the user provides the necessary inputs without requiring a connection 
+  to a vSphere environment.
 
   The calculation uses the formula:
     (required size) = (disk size + new memory size) / (occupancy rate)
 
   Notes:
-  - The script does not account for temporary files (e.g., log files and snapshots), making it suitable for high-level storage planning.
+  - The script does not account for temporary files (e.g., log files and snapshots), making it 
+    suitable for high-level storage planning.
   - Default Datastore occupancy rate is 80% if not provided by the user.
   - Adjust the "vCenter connection info" section for your environment. These settings are ignored in -offline mode.
 
@@ -32,7 +35,8 @@
   occupancy rate. Defaults to 0.8 if not provided.
 
  .PARAMETER offline
-  Switch. Indicates that the VM does not exist yet. Must be used with -DiskSize.
+  Switch. Indicates that the calculation will be performed without connecting to a vCenter server. 
+  Must be used with -DiskSize.
 
  .PARAMETER DiskSize
   (Alias -d) Mandatory when -offline is specified. Specifies the total size of VM disks in GB.
@@ -43,7 +47,8 @@
   .\CalcVmDsSizeReq.ps1 -MemorySize 16 -VmName VM001
 
  .EXAMPLE
-  # Estimate the Datastore size for an imaginary VM with 10GB of memory and a total disk size of 200GB, assuming the total size (disk + memory swap) will fill 85% of the Datastore.
+  # Estimate the Datastore size for an imaginary VM with 10GB of memory and a total disk size of 200GB, 
+  # assuming the total size (disk + memory swap) will fill 85% of the Datastore.
   # Does not require a vCenter connection. You can optionally add '-VmName NewVM002' for clarity or as a reminder.
   .\CalcVmDsSizeReq.ps1 -MemorySize 10 -offline -DiskSize 200 -OccupancyRate 0.85
 #>
@@ -146,6 +151,7 @@ process {
         $vm = Get-VM -Name $VmName
         if ($null -eq $vm) {
             Write-Host "Error, No such Virtual Machine $VmName" -ForegroundColor Red
+            Write-Host "Use -offline option with -DiskSize value if you are trying estimation for a VM not yet deployed" -ForegroundColor Red
             Disconnect-VIServer -Server $vcserver -Confirm:$false
             Exit 1
         }
