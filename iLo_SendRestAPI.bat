@@ -7,9 +7,8 @@ set URI=%1
 set Out=.\tempresult.json
 
 set USER=Administrator
-set PASS=at9mpsys
+set PASS=DonKno
 
 curl -k %URI% -X GET -i --insecure -u %USER%:%PASS% -L -o %Out% >> .\cmd_result.txt
 type .\tempresult.json
 del /Q .\tempresult.json
-
