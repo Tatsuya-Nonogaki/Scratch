@@ -1,8 +1,28 @@
-$Server_Name  = $args[0]
-$Sever_iLo_IP = $args[1]
+<#
+ .SYNOPSIS
+  Get iLo Firmware and Software information.
 
-# $Server_Name  = "C_ESXi_iLo"
-# $Sever_iLo_IP = "172.16.135.239"
+ .DESCRIPTION
+  Get iLo Firmware and Software information and export the result to a CSV file.
+  Version: 0.1.0
+
+ .PARAMETER iLoIP
+  (Alias -i) Mandatory. IP interface address of the iLo.
+
+ .PARAMETER HostName
+  (Alias -n) Optional. Name of the host, which is used just to name the output CSV file, 
+  with dots (".") replaced with underscores ("_"). iLoIP will be used instead If omitted.
+#>
+[CmdletBinding()]
+Param(
+  [Parameter(Mandatory=$true,Position=0)]
+  [Alias("i")]
+  [string]$iLoIP,
+
+  [Parameter(Position=1)]
+  [Alias("n")]
+  [string]$HostName
+)
 
 $TempOutputEncoding = [Console]::OutputEncoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -25,7 +45,7 @@ Add-Type @"
 $CSV_Array = @()
 ### Firmwares List
 Write-Host "Get Firmwares List"
-$uri = "https://" + $Sever_iLo_IP + "/redfish/v1/UpdateService/FirmwareInventory/"
+$uri = "https://" + $iLoIP + "/redfish/v1/UpdateService/FirmwareInventory/"
 $cmd = ".\iLo_SendRestApi.bat $uri" 
 
 $resultCmd = Invoke-Expression $cmd
@@ -35,7 +55,7 @@ $std_json = $resultCmd[$resultcount] | ConvertFrom-Json
 $Sw_Members = $std_json.Members
 
 foreach ($Mem in $Sw_Members) {
-   $uri = "https://" + $Sever_iLo_IP + $Mem.'@odata.id'
+   $uri = "https://" + $iLoIP + $Mem.'@odata.id'
    $cmd = ".\iLo_SendRestApi.bat $uri" 
    $resultCmd = Invoke-Expression $cmd
 
@@ -56,7 +76,7 @@ foreach ($Mem in $Sw_Members) {
 
 ### Softwares List
 Write-Host "Get Softwares List"
-$uri = "https://" + $Sever_iLo_IP + "/redfish/v1/UpdateService/SoftwareInventory/"
+$uri = "https://" + $iLoIP + "/redfish/v1/UpdateService/SoftwareInventory/"
 $cmd = ".\iLo_SendRestApi.bat $uri" 
 
 $resultCmd = Invoke-Expression $cmd
@@ -68,7 +88,7 @@ $std_json = $resultCmd[$resultcount] | ConvertFrom-Json
 $Sw_Members = $std_json.Members
 
 foreach ($Mem in $Sw_Members) {
-   $uri = "https://" + $Sever_iLo_IP + $Mem.'@odata.id'
+   $uri = "https://" + $iLoIP + $Mem.'@odata.id'
    $cmd = ".\iLo_SendRestApi.bat $uri" 
    $resultCmd = Invoke-Expression $cmd
 
@@ -87,7 +107,7 @@ foreach ($Mem in $Sw_Members) {
 }
 
 #[PSCustomObject]$CSV_Array | Format-Table
-$OutFileName = ".\" + $Server_Name + "_FW_SW_List.csv"
+$OutFileName = ".\" + $HostName + "_FW_SW_List.csv"
 [PSCustomObject]$CSV_Array | Export-Csv $OutFileName -Encoding Default -NoTypeInformation
 
 [Console]::OutputEncoding = $TempOutputEncoding
