@@ -24,6 +24,12 @@ Param(
   [string]$HostName
 )
 
+if (!$HostName) {
+   $HostName = $iLoIP.Replace('.', '_')
+}
+
+$scriptdir = Split-Path -Path $myInvocation.MyCommand.Path -Parent
+
 $TempOutputEncoding = [Console]::OutputEncoding
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 [System.Net.ServicePointManager]::SecurityProtocol = @([System.Net.SecurityProtocolType]::Ssl3,[System.Net.SecurityProtocolType]::Tls,[System.Net.SecurityProtocolType]::Tls11,[System.Net.SecurityProtocolType]::Tls12)
@@ -46,7 +52,7 @@ $CSV_Array = @()
 ### Firmwares List
 Write-Host "Get Firmwares List"
 $uri = "https://" + $iLoIP + "/redfish/v1/UpdateService/FirmwareInventory/"
-$cmd = ".\iLo_SendRestApi.bat $uri" 
+$cmd = "$scriptdir\iLo_SendRestApi.bat $uri" 
 
 $resultCmd = Invoke-Expression $cmd
 $resultcount = $resultCmd.Count - 1
@@ -107,7 +113,7 @@ foreach ($Mem in $Sw_Members) {
 }
 
 #[PSCustomObject]$CSV_Array | Format-Table
-$OutFileName = ".\" + $HostName + "_FW_SW_List.csv"
+$OutFileName = ".\" + $HostName + "-FW_SW_List.csv"
 [PSCustomObject]$CSV_Array | Export-Csv $OutFileName -Encoding Default -NoTypeInformation
 
 [Console]::OutputEncoding = $TempOutputEncoding
