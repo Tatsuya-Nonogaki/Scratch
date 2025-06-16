@@ -1,119 +1,128 @@
 <#
  .SYNOPSIS
-  Get iLo Firmware and Software information.
+  Get iLO Firmware and Software information.
 
  .DESCRIPTION
-  Get iLo Firmware and Software information and export the result to a CSV file.
+  Queries HP iLO Redfish REST API for Firmware and Software, outputs as CSV.
   Version: 0.1.0
 
  .PARAMETER iLoIP
-  (Alias -i) Mandatory. IP interface address of the iLo.
+  (Alias -i) Mandatory. IP or hostname of the iLO interface.
 
  .PARAMETER HostName
-  (Alias -n) Optional. Name of the host, which is used just to name the output CSV file, 
-  with dots (".") replaced with underscores ("_"). iLoIP will be used instead If omitted.
+  (Alias -h) Optional. Name of the host. This is used just to form the output CSV filename, 
+  with dots (".") replaced with underscores ("_"). iLoIP will be used instead if omitted.
+
+ .PARAMETER Username
+  (Alias -u) Optional. iLO username (default: Administrator).
+
+ .PARAMETER Password
+  (Alias -p) Optional. iLO password. If omitted, prompts interactively.
 #>
 [CmdletBinding()]
-Param(
-  [Parameter(Mandatory=$true,Position=0)]
-  [Alias("i")]
-  [string]$iLoIP,
+param(
+    [Parameter(Mandatory = $true)]
+    [Alias("i")]
+    [string]$iLoIP,
 
-  [Parameter(Position=1)]
-  [Alias("n")]
-  [string]$HostName
+    [Parameter()]
+    [Alias("h")]
+    [string]$HostName,
+
+    [Parameter()]
+    [Alias("u")]
+    [string]$Username = "Administrator",
+
+    [Parameter()]
+    [Alias("p")]
+    [string]$Password
 )
 
-if (!$HostName) {
-   $HostName = $iLoIP.Replace('.', '_')
+if (-not $HostName) {
+    $HostName = $iLoIP -replace '\.', '_'
 }
 
-$scriptdir = Split-Path -Path $myInvocation.MyCommand.Path -Parent
+if (-not $Password) {
+    $SecurePwd = Read-Host -AsSecureString "Enter iLO password"
+    $BSTR = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePwd)
+    $Password = [Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
+}
 
-$TempOutputEncoding = [Console]::OutputEncoding
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-[System.Net.ServicePointManager]::SecurityProtocol = @([System.Net.SecurityProtocolType]::Ssl3,[System.Net.SecurityProtocolType]::Tls,[System.Net.SecurityProtocolType]::Tls11,[System.Net.SecurityProtocolType]::Tls12)
-
-Add-Type @"
-   using System.Net;
-   using System.Security.Cryptography.X509Certificates;
-   public class TrustAllCertsPolicy : ICertificatePolicy {
-      public bool CheckValidationResult(
-         ServicePoint srvPoint, X509Certificate certificate,
-         WebRequest request, int certificateProblem) {
-         return true;
-      }
-   }
+# Ignore SSL errors
+if (-not ("TrustAllCertsPolicy" -as [type])) {
+    add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(
+        ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
 "@
+}
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 
+# Helper function for REST call with basic auth
+function Invoke-Redfish {
+    param(
+        [string]$Uri
+    )
+    $headers = @{
+        Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$Username`:$Password"))
+    }
+    try {
+        $response = Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get -UseBasicParsing
+        return $response
+    } catch {
+        Write-Error "Failed to query $Uri : $_"
+        return $null
+    }
+}
 
 $CSV_Array = @()
-### Firmwares List
+
+# Firmware
 Write-Host "Get Firmwares List"
-$uri = "https://" + $iLoIP + "/redfish/v1/UpdateService/FirmwareInventory/"
-$cmd = "$scriptdir\iLo_SendRestApi.bat $uri" 
-
-$resultCmd = Invoke-Expression $cmd
-$resultcount = $resultCmd.Count - 1
-
-$std_json = $resultCmd[$resultcount] | ConvertFrom-Json
-$Sw_Members = $std_json.Members
-
-foreach ($Mem in $Sw_Members) {
-   $uri = "https://" + $iLoIP + $Mem.'@odata.id'
-   $cmd = ".\iLo_SendRestApi.bat $uri" 
-   $resultCmd = Invoke-Expression $cmd
-
-   $resultcount = $resultCmd.Count - 1
-
-   $std_json = $resultCmd[$resultcount] | ConvertFrom-Json
-
-   #CSVArray登録
-   $List = [PSCustomObject][ordered]@{
-      Type         = "Firmware"
-      Id           = $std_json.id
-      Description  = $std_json.Description
-      Name         = $std_json.Name
-      Version      = $std_json.Version
-   } 
-   $CSV_Array += $List
+$baseUri = "https://$iLoIP/redfish/v1/UpdateService/FirmwareInventory/"
+$fwList = Invoke-Redfish $baseUri
+if ($fwList -and $fwList.Members) {
+    foreach ($mem in $fwList.Members) {
+        $item = Invoke-Redfish ("https://$iLoIP" + $mem.'@odata.id')
+        if ($item) {
+            $CSV_Array += [PSCustomObject]@{
+                Type        = "Firmware"
+                Id          = $item.Id
+                Description = $item.Description
+                Name        = $item.Name
+                Version     = $item.Version
+            }
+        }
+    }
 }
 
-### Softwares List
+# Software
 Write-Host "Get Softwares List"
-$uri = "https://" + $iLoIP + "/redfish/v1/UpdateService/SoftwareInventory/"
-$cmd = ".\iLo_SendRestApi.bat $uri" 
-
-$resultCmd = Invoke-Expression $cmd
-
-$resultcount = $resultCmd.Count - 1
-
-$std_json = $resultCmd[$resultcount] | ConvertFrom-Json
-
-$Sw_Members = $std_json.Members
-
-foreach ($Mem in $Sw_Members) {
-   $uri = "https://" + $iLoIP + $Mem.'@odata.id'
-   $cmd = ".\iLo_SendRestApi.bat $uri" 
-   $resultCmd = Invoke-Expression $cmd
-
-   $resultcount = $resultCmd.Count - 1
-
-   $std_json = $resultCmd[$resultcount] | ConvertFrom-Json
-   #CSVArray登録
-   $List = [PSCustomObject][ordered]@{
-      Type         = "Software"
-      Id           = $std_json.id
-      Description  = $std_json.Description
-      Name         = $std_json.Name
-      Version      = $std_json.Version
-   } 
-   $CSV_Array += $List
+$baseUri = "https://$iLoIP/redfish/v1/UpdateService/SoftwareInventory/"
+$swList = Invoke-Redfish $baseUri
+if ($swList -and $swList.Members) {
+    foreach ($mem in $swList.Members) {
+        $item = Invoke-Redfish ("https://$iLoIP" + $mem.'@odata.id')
+        if ($item) {
+            $CSV_Array += [PSCustomObject]@{
+                Type        = "Software"
+                Id          = $item.Id
+                Description = $item.Description
+                Name        = $item.Name
+                Version     = $item.Version
+            }
+        }
+    }
 }
 
-#[PSCustomObject]$CSV_Array | Format-Table
-$OutFileName = ".\" + $HostName + "-FW_SW_List.csv"
-[PSCustomObject]$CSV_Array | Export-Csv $OutFileName -Encoding Default -NoTypeInformation
-
-[Console]::OutputEncoding = $TempOutputEncoding
+# Export CSV
+$outFile = ".\${HostName}-iLo_FWSW_List.csv"
+$CSV_Array | Export-Csv -Path $outFile -NoTypeInformation -Encoding Default
+Write-Host "Exported results to $outFile"
