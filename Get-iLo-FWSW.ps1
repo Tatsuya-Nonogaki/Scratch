@@ -4,7 +4,7 @@
 
  .DESCRIPTION
   Queries HP iLO Redfish REST API for Firmware and Software, outputs as CSV.
-  Version: 0.1.0
+  Version: 0.1.1
 
  .PARAMETER iLoIP
   (Alias -i) Mandatory. IP or hostname of the iLO interface.
@@ -77,7 +77,12 @@ function Invoke-Redfish {
         $response = Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get -UseBasicParsing
         return $response
     } catch {
-        Write-Error "Failed to query $Uri : $_"
+        # Check if the error is a 401/403 (unauthorized/forbidden)
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode.value__ -in 401,403) {
+            Write-Host "ERROR: Authentication to iLO failed. Please check your username and password." -ForegroundColor Red
+        } else {
+            Write-Host "Failed to query $Uri : $_" -ForegroundColor Red
+        }
         return $null
     }
 }
@@ -88,6 +93,12 @@ $CSV_Array = @()
 Write-Host "Get Firmwares List"
 $baseUri = "https://$iLoIP/redfish/v1/UpdateService/FirmwareInventory/"
 $fwList = Invoke-Redfish $baseUri
+
+if (-not $fwList) {
+    Write-Host "Aborting: Could not retrieve firmware inventory from iLO." -ForegroundColor Red
+    exit 1
+}
+
 if ($fwList -and $fwList.Members) {
     foreach ($mem in $fwList.Members) {
         $item = Invoke-Redfish ("https://$iLoIP" + $mem.'@odata.id')
@@ -107,6 +118,11 @@ if ($fwList -and $fwList.Members) {
 Write-Host "Get Softwares List"
 $baseUri = "https://$iLoIP/redfish/v1/UpdateService/SoftwareInventory/"
 $swList = Invoke-Redfish $baseUri
+
+if (-not $swList) {
+    Write-Host "WARNING: Could not retrieve software inventory from iLO." -ForegroundColor Yellow
+}
+
 if ($swList -and $swList.Members) {
     foreach ($mem in $swList.Members) {
         $item = Invoke-Redfish ("https://$iLoIP" + $mem.'@odata.id')
@@ -124,5 +140,9 @@ if ($swList -and $swList.Members) {
 
 # Export CSV
 $outFile = ".\${HostName}-iLo_FWSW_List.csv"
+if ($CSV_Array.Count -eq 0) {
+    Write-Host "No firmware or software information could be retrieved." -ForegroundColor Yellow
+    exit 2
+}
 $CSV_Array | Export-Csv -Path $outFile -NoTypeInformation -Encoding Default
 Write-Host "Exported results to $outFile"
