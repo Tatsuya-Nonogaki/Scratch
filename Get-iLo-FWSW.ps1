@@ -1,10 +1,10 @@
 <#
  .SYNOPSIS
-  Get iLO Firmware and Software information.
+  Obtains iLO Firmware and Software information.
 
  .DESCRIPTION
-  Queries HP iLO Redfish REST API for Firmware and Software, outputs as CSV.
-  Version: 0.1.1
+  Queries HP iLO Redfish REST API for Firmware and Software, outputs in CSV format.
+  Version: 0.1.2
 
  .PARAMETER iLoIP
   (Alias -i) Mandatory. IP or hostname of the iLO interface.
@@ -18,6 +18,10 @@
 
  .PARAMETER Password
   (Alias -p) Optional. iLO password. If omitted, prompts interactively.
+ 
+ .PARAMETER OutPath
+  (Alias -o) Optional. Folder path where you want to save the output CSV.
+  Path selection dialog will prompt you to choose, if omitted.
 #>
 [CmdletBinding()]
 param(
@@ -35,13 +39,44 @@ param(
 
     [Parameter()]
     [Alias("p")]
-    [string]$Password
+    [string]$Password,
+
+    [Parameter()]
+    [Alias("o")]
+    [string]$OutPath
 )
+
+$scriptdir = Split-Path -Path $myInvocation.MyCommand.Path -Parent
 
 if (-not $HostName) {
     $HostName = $iLoIP -replace '\.', '_'
 }
 
+# Folder selection dialog
+function Get-Folder {
+    Add-Type -AssemblyName System.Windows.Forms
+    $folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+    $folderBrowser.Description = "Select the output folder"
+    $folderBrowser.SelectedPath = $scriptdir
+    if ($folderBrowser.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $selectedPath = $folderBrowser.SelectedPath
+        return $selectedPath
+    }
+    return ""
+}
+
+# Determine output folder path
+$outputFolderPath = ""
+if (-not $OutPath) {
+    $outputFolderPath = Get-Folder
+} else {
+    $outputFolderPath = $OutPath
+}
+if (-not $outputFolderPath) {
+    $outputFolderPath = '.'
+}
+
+# Interactive password prompt
 if (-not $Password) {
     $SecurePwd = Read-Host -AsSecureString "Enter iLO password"
     $BSTR = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePwd)
@@ -59,8 +94,8 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
         ServicePoint srvPoint, X509Certificate certificate,
         WebRequest request, int certificateProblem) {
         return true;
+        }
     }
-}
 "@
 }
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
