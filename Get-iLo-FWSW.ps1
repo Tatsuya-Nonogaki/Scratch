@@ -75,6 +75,12 @@ if (-not $OutPath) {
 if (-not $outputFolderPath) {
     $outputFolderPath = '.'
 }
+$outputFolderPath = $outputFolderPath.TrimEnd('\','/')
+
+if (-not (Test-Path -Path $outputFolderPath -PathType Container)) {
+    Write-Host "ERROR: Output folder '$outputFolderPath' does not exist." -ForegroundColor Red
+    exit 3
+}
 
 # Interactive password prompt
 if (-not $Password) {
@@ -125,7 +131,7 @@ function Invoke-Redfish {
 $CSV_Array = @()
 
 # Firmware
-Write-Host "Get Firmwares List"
+Write-Host "Get Firmware List"
 $baseUri = "https://$iLoIP/redfish/v1/UpdateService/FirmwareInventory/"
 $fwList = Invoke-Redfish $baseUri
 
@@ -150,7 +156,7 @@ if ($fwList -and $fwList.Members) {
 }
 
 # Software
-Write-Host "Get Softwares List"
+Write-Host "Get Software List"
 $baseUri = "https://$iLoIP/redfish/v1/UpdateService/SoftwareInventory/"
 $swList = Invoke-Redfish $baseUri
 
@@ -174,7 +180,7 @@ if ($swList -and $swList.Members) {
 }
 
 # Export CSV
-$outFile = ".\${HostName}-iLo_FWSW_List.csv"
+$outFile = "${outputFolderPath}\${HostName}-iLo_FWSW_List.csv"
 if ($CSV_Array.Count -eq 0) {
     Write-Host "No firmware or software information could be retrieved." -ForegroundColor Yellow
     exit 2
