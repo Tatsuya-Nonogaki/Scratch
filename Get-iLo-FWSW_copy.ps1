@@ -4,7 +4,7 @@
 
  .DESCRIPTION
   Queries HP iLO Redfish REST API for Firmware and Software, outputs in CSV format.
-  Version: 0.1.3
+  Version: 0.1.3N
 
  .PARAMETER iLoIP
   (Alias -i) Mandatory. IP or hostname of the iLO interface.
@@ -39,7 +39,7 @@ param(
 
     [Parameter()]
     [Alias("p")]
-    [string]$Passwd,
+    [string]$Password,
 
     [Parameter()]
     [Alias("o")]
@@ -83,10 +83,10 @@ if (-not (Test-Path -Path $outputFolderPath -PathType Container)) {
 }
 
 # Interactive password prompt
-if (-not $Passwd) {
+if (-not $Password) {
     $SecurePwd = Read-Host -AsSecureString "Enter iLO password"
     $BSTR = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePwd)
-    $Passwd = [Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    $Password = [Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($BSTR)
 }
 
@@ -105,7 +105,7 @@ function Invoke-Redfish {
     try {
         if( Test-PSVersion7 ){
             [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-            $SecurePassword = ConvertTo-SecureString -String $Passwd -AsPlainText -Force
+            $SecurePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
             $cred = New-Object System.Management.Automation.PSCredential($Username, $SecurePassword)
             $response = Invoke-RestMethod -Uri $Uri -Authentication Basic -Credential $cred -Method Get -UseBasicParsing -SkipCertificateCheck -SkipHttpErrorCheck
 
@@ -127,7 +127,7 @@ public class TrustAllCertsPolicy : ICertificatePolicy {
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
 
             $headers = @{
-                Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$Username`:$Passwd"))
+                Authorization = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("$Username`:$Password"))
             }
             $response = Invoke-RestMethod -Uri $Uri -Headers $headers -Method Get -UseBasicParsing
         }
