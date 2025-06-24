@@ -4,7 +4,7 @@
 
  .DESCRIPTION
   Queries HP iLO Redfish REST API for Firmware and Software, outputs in CSV format.
-  Version: 0.1.3N
+  Version: 0.1.3.N2
 
  .PARAMETER iLoIP
   (Alias -i) Mandatory. IP or hostname of the iLO interface.
@@ -104,7 +104,6 @@ function Invoke-Redfish {
 
     try {
         if( Test-PSVersion7 ){
-            [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
             $SecurePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
             $cred = New-Object System.Management.Automation.PSCredential($Username, $SecurePassword)
             $response = Invoke-RestMethod -Uri $Uri -Authentication Basic -Credential $cred -Method Get -UseBasicParsing -SkipCertificateCheck -SkipHttpErrorCheck
@@ -206,4 +205,3 @@ if ($CSV_Array.Count -eq 0) {
 }
 $CSV_Array | Export-Csv -Path $outFile -NoTypeInformation -Encoding Default
 Write-Host "Exported results to $outFile"
-
