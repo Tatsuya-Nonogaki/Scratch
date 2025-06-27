@@ -4,7 +4,7 @@
 # !! For JDK 11.0.19 or later, JAVA_HOME became /usr/lib/jvm/jdk-11-x64
 #    without update number! So, this treatment is unnecessary.
 # ! Mind this script won't work if interpreter is "sh", not bash !
-# Version 1.2
+# Version 1.3
 
 ### Edit here:
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
@@ -41,6 +41,9 @@ escape_perl_replace() {
 
 PERL_OLD=$(escape_perl_regex "$OLD_JDK_STRING")
 PERL_NEW=$(escape_perl_replace "$NEW_JDK_STRING")
+
+echo "OLD_JDK_STRING: $OLD_JDK_STRING"
+echo "NEW_JDK_STRING: $NEW_JDK_STRING"
 
 # Find files
 file_list=$(grep -FIlr "$OLD_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out")
