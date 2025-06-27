@@ -4,6 +4,7 @@
 # !! For JDK 11.0.19 or later, JAVA_HOME became /usr/lib/jvm/jdk-11-x64
 #    without update number! So, this treatment is unnecessary.
 # ! Mind this script won't work if interpreter is "sh", not bash !
+# Version 1.2
 
 ### Edit here:
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
