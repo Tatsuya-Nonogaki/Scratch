@@ -9,6 +9,22 @@
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
 
+MYBASENAME=$(basename "$0")
+DRY_RUN=0
+AUTO_YES_ALL=0
+
+while getopts "d" opt; do
+  case $opt in
+    d)
+      DRY_RUN=1
+      ;;
+    *)
+      echo "Usage: $MYBASENAME [-d]"
+      exit 1
+      ;;
+  esac
+done
+
 if [ -z "$DOMAIN_HOME" ]; then
     echo "Set DOMAIN_HOME environment variable first."
     exit 1
@@ -25,21 +41,44 @@ escape_perl_replace() {
 PERL_OLD=$(escape_perl_regex "$OLD_JDK_STRING")
 PERL_NEW=$(escape_perl_replace "$NEW_JDK_STRING")
 
+# Find files
+file_list=$(grep -FIlr "$OLD_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out")
+
+if [ $DRY_RUN -eq 1 ]; then
+    echo "Dry-run mode: listing files containing OLD_JDK_STRING ('$OLD_JDK_STRING')"
+    echo "-----------------------------------------------------------------------"
+    echo "$file_list"
+    echo "-----------------------------------------------------------------------"
+    exit 0
+fi
+
 replace_string() {
+    # If AUTO_YES_ALL is set, always proceed
+    if [ $AUTO_YES_ALL -eq 1 ]; then
+        echo "non-interactive mode: processing '$1'"
+        perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
+        return
+    fi
+
     local ACK
     echo "string found in '$1'"
-    read -p "Do you want me to proceed? ([y]/n): " -t 10 ACK
+    read -p "Do you want me to proceed? ([y]/n/[a]=all): " -t 10 ACK
     : ${ACK:=y}
 
     if [ "$ACK" = "y" ] || [ "$ACK" = "Y" ]; then
         echo -e "processing\n"
+        perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
+    elif [ "$ACK" = "a" ] || [ "$ACK" = "A" ]; then
+        echo -e "processing (and all subsequent files, non-interactive)\n"
+        AUTO_YES_ALL=1
         perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
     else
         echo -e "skipped\n"
     fi
 }
 
-while read -u 9 FNAME; do
+while read -r FNAME; do
+    [ -z "$FNAME" ] && continue
     if [ ! -f "$FNAME" ]; then
         echo "No such file '$FNAME'"
         continue
@@ -47,4 +86,4 @@ while read -u 9 FNAME; do
 
     replace_string "$FNAME"
 
-done 9< <(grep -FIlr "$OLD_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out")
+done <<< "$file_list"
