@@ -19,7 +19,7 @@ show_help() {
 Usage: $MYBASENAME [-d] [-h]
   -d: Dry-run mode. List matching files and exit without modification.
   -h: Show this help.
-Aditional note: Environment varriable DOMAIN_HOME must be defined.
+Aditional note: Environment variable DOMAIN_HOME must be defined.
 EOM
 }
 
@@ -87,7 +87,7 @@ replace_string() {
         perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
     elif [ "$ACK" = "a" ] || [ "$ACK" = "A" ]; then
         echo "processing '$1'"
-        echo -e "Will continue processing in non-interactive mode.\n"
+        echo -e "Continue processing in non-interactive mode.\n"
         AUTO_YES_ALL=1
         perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
     else
