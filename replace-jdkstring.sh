@@ -36,7 +36,7 @@ while getopts "dh" opt; do
 done
 
 if [ -z "$DOMAIN_HOME" ]; then
-    echo "Set DOMAIN_HOME environment variable first."
+    echo "Environment variable DOMAIN_HOME must be defined."
     exit 1
 fi
 
