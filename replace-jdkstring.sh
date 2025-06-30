@@ -4,7 +4,7 @@
 # !! For JDK 11.0.19 or later, JAVA_HOME became /usr/lib/jvm/jdk-11-x64
 #    without update number! So, this treatment is unnecessary.
 # ! Mind this script won't work if interpreter is "sh", not bash !
-# Version 1.4
+# Version 1.5
 
 ### Edit here:
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
@@ -19,6 +19,7 @@ show_help() {
 Usage: $MYBASENAME [-d] [-h]
   -d: Dry-run mode. List matching files and exit without modification.
   -h: Show this help.
+Aditional note: Environment varriable DOMAIN_HOME must be defined.
 EOM
 }
 
@@ -81,12 +82,12 @@ replace_string() {
     read -t 10 -p "Do you want me to proceed? ([y]/n/a(=all)): " ACK </dev/tty
     : ${ACK:=y}
 
-    if [ "$ACK" = "y" -o "$ACK" = "Y" ]; then
+    if [ "$ACK" = "y" ] || [ "$ACK" = "Y" ]; then
         echo -e "processing '$1'\n"
         perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
-    elif [ "$ACK" = "a" -o "$ACK" = "A" ]; then
+    elif [ "$ACK" = "a" ] || [ "$ACK" = "A" ]; then
         echo "processing '$1'"
-        echo -e "Continue processing in non-interactive mode.\n"
+        echo -e "Will continue processing in non-interactive mode.\n"
         AUTO_YES_ALL=1
         perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
     else
