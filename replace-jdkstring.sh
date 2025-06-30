@@ -4,7 +4,7 @@
 # !! For JDK 11.0.19 or later, JAVA_HOME became /usr/lib/jvm/jdk-11-x64
 #    without update number! So, this treatment is unnecessary.
 # ! Mind this script won't work if interpreter is "sh", not bash !
-# Version 1.3
+# Version 1.4
 
 ### Edit here:
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
@@ -14,13 +14,21 @@ MYBASENAME=$(basename "$0")
 DRY_RUN=0
 AUTO_YES_ALL=0
 
-while getopts "d" opt; do
+show_help() {
+   cat <<EOM
+Usage: $MYBASENAME [-d] [-h]
+  -d: Dry-run mode. List matching files and exit without modification.
+  -h: Show this help.
+EOM
+}
+
+while getopts "dh" opt; do
   case $opt in
     d)
       DRY_RUN=1
       ;;
-    *)
-      echo "Usage: $MYBASENAME [-d]"
+    h|*)
+      show_help
       exit 1
       ;;
   esac
@@ -51,7 +59,11 @@ file_list=$(grep -FIlr "$OLD_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exc
 if [ $DRY_RUN -eq 1 ]; then
     echo "Dry-run mode: listing files containing OLD_JDK_STRING ('$OLD_JDK_STRING')"
     echo "-----------------------------------------------------------------------"
-    echo "$file_list"
+    if [ -z "$file_list" ]; then
+        echo "No matching files found."
+    else
+        echo "$file_list"
+    fi
     echo "-----------------------------------------------------------------------"
     exit 0
 fi
@@ -59,23 +71,24 @@ fi
 replace_string() {
     # If AUTO_YES_ALL is set, always proceed
     if [ $AUTO_YES_ALL -eq 1 ]; then
-        echo "non-interactive mode: processing '$1'"
-        perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
+        echo "processing '$1'"
+        perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
         return
     fi
 
     local ACK
     echo "string found in '$1'"
-    read -p "Do you want me to proceed? ([y]/n/[a]=all): " -t 10 ACK
+    read -t 10 -p "Do you want me to proceed? ([y]/n/a(=all)): " ACK </dev/tty
     : ${ACK:=y}
 
-    if [ "$ACK" = "y" ] || [ "$ACK" = "Y" ]; then
-        echo -e "processing\n"
-        perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
-    elif [ "$ACK" = "a" ] || [ "$ACK" = "A" ]; then
-        echo -e "processing (and all subsequent files, non-interactive)\n"
+    if [ "$ACK" = "y" -o "$ACK" = "Y" ]; then
+        echo -e "processing '$1'\n"
+        perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
+    elif [ "$ACK" = "a" -o "$ACK" = "A" ]; then
+        echo "processing '$1'"
+        echo -e "Continue processing in non-interactive mode.\n"
         AUTO_YES_ALL=1
-        perl -pi -e "s/$PERL_OLD/$PERL_NEW/g;" "$1"
+        perl -pi -e "s%$PERL_OLD%$PERL_NEW%g;" "$1"
     else
         echo -e "skipped\n"
     fi
