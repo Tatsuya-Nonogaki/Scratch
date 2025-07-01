@@ -1,14 +1,16 @@
 #!/bin/bash
 # Searches and replaces JDK location strings among files in $DOMAIN_HOME,
 # and can report or update JAVA_HOME in Oracle OUI ($ORACLE_HOME).
-# Version 2.1.1
+# Version 2.1.4
 
-### Edit DOMAIN_HOME JDK strings here:
+### Edit JAVA_HOME strings here:
+NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
+# Below is used only for DOMAIN_HOME
 OLD_DOMAIN_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
-NEW_DOMAIN_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
 
 MYBASENAME=$(basename "$0")
 LIST_ONLY=0
+VERBOSE_LIST=0
 AUTO_YES_ALL=0
 DO_DOMAIN=0
 DO_OUI=0
@@ -17,6 +19,7 @@ show_help() {
    cat <<EOM
 Usage: $MYBASENAME [OPTION]
   -l: List-only mode. List matching files and exit without modification.
+  -v: Verbose list-only mode. Print matching lines with filenames (use with -l).
   -d: Process files under DOMAIN_HOME.
   -o: Process ORACLE_HOME (OUI JAVA_HOME property).
       If neither or both -d and -o are specified, both locations are processed.
@@ -28,9 +31,10 @@ EOM
 }
 
 # Option parsing
-while getopts "ldoh" opt; do
+while getopts "ldovh" opt; do
   case $opt in
     l) LIST_ONLY=1 ;;
+    v) VERBOSE_LIST=1 ;;
     d) DO_DOMAIN=1 ;;
     o) DO_OUI=1 ;;
     h|*) show_help; exit 0 ;;
@@ -61,11 +65,11 @@ escape_perl_replace() {
     printf '%s' "$1" | perl -pe 's/([\\\$\@])/\\$1/g'
 }
 
-PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_DOMAIN_JDK_STRING")
-PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_DOMAIN_JDK_STRING")
-
-# Print string summary for each target
+# String summary for each target
 if [ $DO_DOMAIN -eq 1 ]; then
+    NEW_DOMAIN_JDK_STRING="$NEW_JDK_STRING"
+    PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_DOMAIN_JDK_STRING")
+    PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_DOMAIN_JDK_STRING")
     echo "We are processing DOMAIN_HOME: $DOMAIN_HOME"
     echo "OLD_DOMAIN_JDK_STRING: $OLD_DOMAIN_JDK_STRING"
     echo "NEW_DOMAIN_JDK_STRING: $NEW_DOMAIN_JDK_STRING"
@@ -75,19 +79,27 @@ if [ $DO_OUI -eq 1 ]; then
     echo "We are processing ORACLE_HOME: $ORACLE_HOME"
     OUI_BIN="$ORACLE_HOME/oui/bin"
     OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
-    NEW_OUI_JDK_STRING="$NEW_DOMAIN_JDK_STRING"
+    NEW_OUI_JDK_STRING="$NEW_JDK_STRING"
     echo "OLD_OUI_JDK_STRING: $OLD_OUI_JDK_STRING"
     echo "NEW_OUI_JDK_STRING: $NEW_OUI_JDK_STRING"
 fi
 
 # Function: find files in DOMAIN_HOME
 find_files_domain() {
-    grep -FIlr "$OLD_DOMAIN_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out"
+    if [ "$VERBOSE_LIST" = "1" ]; then
+        grep -Fnr "$OLD_DOMAIN_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out"
+    else
+        grep -FIlr "$OLD_DOMAIN_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out"
+    fi
 }
 
 # Function: find files in ORACLE_HOME (for report only)
 find_files_oracle() {
-    grep -FIlr "$OLD_OUI_JDK_STRING" "$ORACLE_HOME" --exclude-dir .patch_storage --exclude-dir logs --exclude-dir tmp | grep -Ev "\.log|\.out"
+    if [ "$VERBOSE_LIST" = "1" ]; then
+        grep -Fnr "$OLD_OUI_JDK_STRING" "$ORACLE_HOME" --exclude-dir .patch_storage --exclude-dir logs --exclude-dir tmp | grep -Ev "\.log|\.out"
+    else
+        grep -FIlr "$OLD_OUI_JDK_STRING" "$ORACLE_HOME" --exclude-dir .patch_storage --exclude-dir logs --exclude-dir tmp | grep -Ev "\.log|\.out"
+    fi
 }
 
 # Function: replace string in DOMAIN_HOME files
@@ -121,7 +133,11 @@ replace_domain_string() {
 if [ $DO_DOMAIN -eq 1 ]; then
     file_list_domain=$(find_files_domain)
     if [ $LIST_ONLY -eq 1 ]; then
-        echo "List-only mode: listing files containing OLD_DOMAIN_JDK_STRING ('$OLD_DOMAIN_JDK_STRING') in DOMAIN_HOME"
+        if [ $VERBOSE_LIST -eq 1 ]; then
+            echo "List-only+verbose mode: listing files and matching lines containing OLD_DOMAIN_JDK_STRING ('$OLD_DOMAIN_JDK_STRING') in DOMAIN_HOME"
+        else
+            echo "List-only mode: listing files containing OLD_DOMAIN_JDK_STRING ('$OLD_DOMAIN_JDK_STRING') in DOMAIN_HOME"
+        fi
         echo "-----------------------------------------------------------------------"
         if [ -z "$file_list_domain" ]; then
             echo "No matching files found."
@@ -145,7 +161,11 @@ fi
 # Process ORACLE_HOME/OUI JAVA_HOME if requested
 if [ $DO_OUI -eq 1 ]; then
     if [ $LIST_ONLY -eq 1 ]; then
-        echo "List-only mode: listing files containing OLD_OUI_JDK_STRING ('$OLD_OUI_JDK_STRING') in ORACLE_HOME"
+        if [ $VERBOSE_LIST -eq 1 ]; then
+            echo "List-only+verbose mode: listing files and matching lines containing OLD_OUI_JDK_STRING ('$OLD_OUI_JDK_STRING') in ORACLE_HOME"
+        else
+            echo "List-only mode: listing files containing OLD_OUI_JDK_STRING ('$OLD_OUI_JDK_STRING') in ORACLE_HOME"
+        fi
         echo "-----------------------------------------------------------------------"
         file_list_oracle=$(find_files_oracle)
         if [ -z "$file_list_oracle" ]; then
