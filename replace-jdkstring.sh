@@ -1,7 +1,7 @@
 #!/bin/bash
 # Searches and replaces JDK location strings among files in $DOMAIN_HOME,
 # and can report or update JAVA_HOME in Oracle OUI ($ORACLE_HOME).
-# Version 2.1.4
+# Version 2.1.5
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -65,23 +65,20 @@ escape_perl_replace() {
     printf '%s' "$1" | perl -pe 's/([\\\$\@])/\\$1/g'
 }
 
-# String summary for each target
 if [ $DO_DOMAIN -eq 1 ]; then
-    NEW_DOMAIN_JDK_STRING="$NEW_JDK_STRING"
     PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_DOMAIN_JDK_STRING")
-    PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_DOMAIN_JDK_STRING")
+    PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_JDK_STRING")
     echo "We are processing DOMAIN_HOME: $DOMAIN_HOME"
     echo "OLD_DOMAIN_JDK_STRING: $OLD_DOMAIN_JDK_STRING"
-    echo "NEW_DOMAIN_JDK_STRING: $NEW_DOMAIN_JDK_STRING"
+    echo "NEW_JDK_STRING: $NEW_JDK_STRING"
 fi
 
 if [ $DO_OUI -eq 1 ]; then
     echo "We are processing ORACLE_HOME: $ORACLE_HOME"
     OUI_BIN="$ORACLE_HOME/oui/bin"
     OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
-    NEW_OUI_JDK_STRING="$NEW_JDK_STRING"
     echo "OLD_OUI_JDK_STRING: $OLD_OUI_JDK_STRING"
-    echo "NEW_OUI_JDK_STRING: $NEW_OUI_JDK_STRING"
+    echo "NEW_JDK_STRING: $NEW_JDK_STRING"
 fi
 
 # Function: find files in DOMAIN_HOME
@@ -179,14 +176,14 @@ if [ $DO_OUI -eq 1 ]; then
 
     # Interactive confirmation before backup and update
     local OUI_ACK
-    read -t 10 -p "Backup and update OUI JAVA_HOME? ([y]/n): " OUI_ACK </dev/tty
+    read -t 10 -p "Backup and update OUI JAVA_HOME? ([y]/n): " OUI_ACK
     : ${OUI_ACK:=y}
 
     if [ "$OUI_ACK" = "y" ] || [ "$OUI_ACK" = "Y" ]; then
         echo "Backing up current JAVA_HOME to OLD_JAVA_HOME property..."
         "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$OLD_OUI_JDK_STRING"
         echo "Updating JAVA_HOME property..."
-        "$OUI_BIN/setProperty.sh" -name JAVA_HOME -value "$NEW_OUI_JDK_STRING"
+        "$OUI_BIN/setProperty.sh" -name JAVA_HOME -value "$NEW_JDK_STRING"
         echo "OUI JAVA_HOME updated."
     else
         echo "OUI JAVA_HOME update skipped."
