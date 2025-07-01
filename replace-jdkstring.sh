@@ -4,29 +4,33 @@
 # !! For JDK 11.0.19 or later, JAVA_HOME became /usr/lib/jvm/jdk-11-x64
 #    without update number! So, this treatment is unnecessary.
 # ! Mind this script won't work if interpreter is "sh", not bash !
-# Version 1.5
+# Version 2.0.1
 
 ### Edit here:
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
 
 MYBASENAME=$(basename "$0")
-DRY_RUN=0
+LIST_ONLY=0
 AUTO_YES_ALL=0
 
 show_help() {
    cat <<EOM
-Usage: $MYBASENAME [-d] [-h]
-  -d: Dry-run mode. List matching files and exit without modification.
+Usage: $MYBASENAME [OPTION]
+  -l: List-only mode. List matching files and exit without modification.
+  -d: Process files under DOMAIN_HOME.
+      If none or both -d and -o is specified, both location are processed.
+  -o: Process files under ORACLE_HOME.
   -h: Show this help.
-Aditional note: Environment variable DOMAIN_HOME must be defined.
+Aditional note: Environment variable DOMAIN_HOME, and ORACLE_HOME (if '-o' 
+is specified or implied) must be defined.
 EOM
 }
 
-while getopts "dh" opt; do
+while getopts "lh" opt; do
   case $opt in
-    d)
-      DRY_RUN=1
+    l)
+      LIST_ONLY=1
       ;;
     h|*)
       show_help
@@ -57,8 +61,8 @@ echo "NEW_JDK_STRING: $NEW_JDK_STRING"
 # Find files
 file_list=$(grep -FIlr "$OLD_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out")
 
-if [ $DRY_RUN -eq 1 ]; then
-    echo "Dry-run mode: listing files containing OLD_JDK_STRING ('$OLD_JDK_STRING')"
+if [ $LIST_ONLY -eq 1 ]; then
+    echo "List-only mode: listing files containing OLD_JDK_STRING ('$OLD_JDK_STRING')"
     echo "-----------------------------------------------------------------------"
     if [ -z "$file_list" ]; then
         echo "No matching files found."
