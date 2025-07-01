@@ -1,6 +1,11 @@
 #!/bin/bash
-# Searches and replaces JDK location strings among files in $DOMAIN_HOME,
-# and can report or update JAVA_HOME in Oracle OUI ($ORACLE_HOME).
+# This script updates JDK path references in WebLogic DOMAIN_HOME configuration 
+# files, and can also report or update the JAVA_HOME property used by Oracle 
+# Universal Installer (OUI).
+#
+# Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
+# where coordinated JDK path updates are needed.
+# 
 # Version 2.1.5
 
 ### Edit JAVA_HOME strings here:
