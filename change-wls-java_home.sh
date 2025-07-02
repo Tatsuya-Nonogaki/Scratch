@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.6
+# Version 2.1.7
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -86,7 +86,7 @@ else
     target_oui="OLD_OUI"
 fi
 
-# Escape the old/new JDK strings for Perl regex and replacement (DOMAIN_HOME)
+# Function: Escape the old/new JDK strings for Perl regex and replacement (DOMAIN_HOME)
 escape_perl_regex() {
     printf '%s' "$1" | perl -pe 's/([\[\]\(\)\{\}\^\$\.\|\?\*\+\\\/])/\\$1/g'
 }
@@ -98,19 +98,6 @@ if [ $DO_DOMAIN -eq 1 ]; then
     if [ -z "$TEST_JDK_STRING" ]; then
         PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_DOMAIN_JDK_STRING")
         PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_JDK_STRING")
-    fi
-    echo "We are processing DOMAIN_HOME: $DOMAIN_HOME"
-    echo "${target_domain}_JDK_STRING: $SEARCH_DOMAIN_JDK_STRING"
-    if [ -z "$TEST_JDK_STRING" ]; then
-        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
-    fi
-fi
-
-if [ $DO_OUI -eq 1 ]; then
-    echo "We are processing ORACLE_HOME: $ORACLE_HOME"
-    echo "${target_oui}_JDK_STRING: $SEARCH_OUI_JDK_STRING"
-    if [ -z "$TEST_JDK_STRING" ]; then
-        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
     fi
 fi
 
@@ -161,6 +148,12 @@ replace_domain_string() {
 
 # Process DOMAIN_HOME files if requested
 if [ $DO_DOMAIN -eq 1 ]; then
+    echo "We are processing DOMAIN_HOME: $DOMAIN_HOME"
+    echo "${target_domain}_JDK_STRING: $SEARCH_DOMAIN_JDK_STRING"
+    if [ -z "$TEST_JDK_STRING" ]; then
+        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
+    fi
+
     file_list_domain=$(find_files_domain)
     if [ $LIST_ONLY -eq 1 ]; then
         if [ $VERBOSE_LIST -eq 1 ]; then
@@ -190,6 +183,12 @@ fi
 
 # Process ORACLE_HOME/OUI JAVA_HOME if requested
 if [ $DO_OUI -eq 1 ]; then
+    echo "We are processing ORACLE_HOME: $ORACLE_HOME"
+    echo "${target_oui}_JDK_STRING: $SEARCH_OUI_JDK_STRING"
+    if [ -z "$TEST_JDK_STRING" ]; then
+        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
+    fi
+
     file_list_oracle=$(find_files_oracle)
     if [ $LIST_ONLY -eq 1 ]; then
         if [ $VERBOSE_LIST -eq 1 ]; then
