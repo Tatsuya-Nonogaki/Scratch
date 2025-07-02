@@ -6,12 +6,18 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.8
+# Version 2.1.9
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
 # Below is used only for DOMAIN_HOME
 OLD_DOMAIN_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
+
+# --- SAFE_MODE: Prevent any accidental modification during testing or dry runs ---
+# !!! WARNING !!!
+# SAFE_MODE is enabled by default to prevent accidental modification.
+# Set SAFE_MODE=0 **only after** you have reviewed and tested this script in your environment.
+SAFE_MODE=1
 
 MYBASENAME=$(basename "$0")
 LIST_ONLY=0
@@ -37,6 +43,11 @@ Usage: $MYBASENAME [OPTION]
 
 Note: Environment variables DOMAIN_HOME and/or ORACLE_HOME must be defined,
 depending on the processing options.
+
+*** WARNING: SAFE_MODE is enabled by default ***
+    This prevents any modification of the Middleware environment.
+    To allow actual changes, set SAFE_MODE=0 at the top of this script
+    only after review and testing.
 EOM
 }
 
@@ -52,10 +63,21 @@ while getopts "ldovht:" opt; do
   esac
 done
 
+# --- SAFE_MODE ENFORCEMENT ---
+if [ "$SAFE_MODE" = "1" ]; then
+    LIST_ONLY=1
+    echo "Warning: Script is running in SAFE_MODE. No modifications will be made, regardless of what options are passed at runtime."
+    if [ -n "$JAVA_HOME" ]; then
+        NEW_JDK_STRING="$JAVA_HOME"
+        OLD_DOMAIN_JDK_STRING="$JAVA_HOME"
+        echo "Both search and replace strings set to current system JAVA_HOME: $JAVA_HOME"
+    fi
+fi
+
 # If neither or both -d/-o given, process both
 if [ $DO_DOMAIN -eq 0 ] && [ $DO_OUI -eq 0 ]; then
-  DO_DOMAIN=1
-  DO_OUI=1
+    DO_DOMAIN=1
+    DO_OUI=1
 fi
 
 # Global environment variable checks
