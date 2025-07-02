@@ -72,6 +72,7 @@ if [ "$SAFE_MODE" = "1" ]; then
         OLD_DOMAIN_JDK_STRING="$JAVA_HOME"
         echo "Both search and replace strings set to current system JAVA_HOME: $JAVA_HOME"
     fi
+    echo
 fi
 
 # If neither or both -d/-o given, process both
