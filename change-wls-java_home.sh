@@ -25,7 +25,8 @@ show_help() {
    cat <<EOM
 Usage: $MYBASENAME [OPTION]
   -l: List-only mode. List matching files and exit without modification.
-  -v: Verbose list-only mode. Print matching lines with filenames (use with -l).
+  -v: Verbose list-only mode. Print matching lines with filenames. Use together
+      with -l or -t ; -v alone has no effect.
   -d: Process files under DOMAIN_HOME.
   -o: Process ORACLE_HOME (OUI JAVA_HOME property).
       If neither or both -d and -o are specified, both locations are processed.
