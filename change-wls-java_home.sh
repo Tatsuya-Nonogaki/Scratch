@@ -15,7 +15,7 @@ OLD_DOMAIN_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
 
 # --- SAFE_MODE: Prevent any accidental modification during testing or dry runs ---
 # !!! WARNING !!!
-# SAFE_MODE is enabled by default to prevent accidental modification.
+# SAFE_MODE is enabled by default to prevent accidental modification of the Middleware environment.
 # Set SAFE_MODE=0 **only after** you have reviewed and tested this script in your environment.
 SAFE_MODE=1
 
