@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.7
+# Version 2.1.8
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -72,6 +72,10 @@ fi
 if [ $DO_OUI -eq 1 ] && [ -z "$TEST_JDK_STRING" ]; then
     OUI_BIN="$ORACLE_HOME/oui/bin"
     OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
+    if [ -z "$OLD_OUI_JDK_STRING" ]; then
+        echo "Error: Failed to fetch current JAVA_HOME from OUI. Either 'getProperty.sh' encountered an error, or the JAVA_HOME property is empty or missing."
+        exit 2
+    fi
 fi
 
 # Set active search variables and target labels
