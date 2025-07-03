@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.9
+# Version 2.1.10
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -84,11 +84,11 @@ fi
 # Global environment variable checks
 if [ $DO_DOMAIN -eq 1 ] && [ -z "$DOMAIN_HOME" ]; then
     echo "Environment variable DOMAIN_HOME must be defined."
-    exit 1
+    exit 2
 fi
 if [ $DO_OUI -eq 1 ] && [ -z "$ORACLE_HOME" ]; then
     echo "Environment variable ORACLE_HOME must be defined."
-    exit 1
+    exit 2
 fi
 
 # Prepare OUI old JDK string if needed
@@ -242,8 +242,23 @@ if [ $DO_OUI -eq 1 ]; then
     if [ "$OUI_ACK" = "y" ] || [ "$OUI_ACK" = "Y" ]; then
         echo "Backing up current JAVA_HOME to OLD_JAVA_HOME property..."
         "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$OLD_OUI_JDK_STRING"
+        RESULT_OLD_JAVA_HOME=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
+        if [ "$RESULT_OLD_JAVA_HOME" != "$OLD_OUI_JDK_STRING" ]; then
+            echo "Error: Failed to back up to OLD_JAVA_HOME property in OUI."
+            echo "Expected: '$OLD_OUI_JDK_STRING'"
+            echo "Actual:   '$RESULT_OLD_JAVA_HOME'"
+            exit 1
+        fi
+
         echo "Updating JAVA_HOME property..."
         "$OUI_BIN/setProperty.sh" -name JAVA_HOME -value "$NEW_JDK_STRING"
+        RESULT_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
+        if [ "$RESULT_OUI_JDK_STRING" != "$NEW_JDK_STRING" ]; then
+            echo "Error: JAVA_HOME property in OUI was not updated as expected."
+            echo "Expected: '$NEW_JDK_STRING'"
+            echo "Actual:   '$RESULT_OUI_JDK_STRING'"
+            exit 1
+        fi
         echo "OUI JAVA_HOME updated."
     else
         echo "OUI JAVA_HOME update skipped."
