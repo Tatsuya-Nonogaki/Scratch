@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.10
+# Version 2.1.11
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -43,6 +43,12 @@ Usage: $MYBASENAME [OPTION]
 
 Note: Environment variables DOMAIN_HOME and/or ORACLE_HOME must be defined,
 depending on the processing options.
+
+Note: The ORACLE_HOME listing feature (-o + -l) is intended for reference only.
+Manual replacement of JAVA_HOME under $ORACLE_HOME is not required; this script
+follows Oracle's official update method (setProperty.sh) only, for ORACLE_HOME.
+Some old JAVA_HOME paths may remain after a change, but this is generally not an
+issue --just leave them unless specifically instructed otherwise by Oracle Support.
 
 *** WARNING: SAFE_MODE is enabled by default ***
     This prevents any modification of the Middleware environment.
