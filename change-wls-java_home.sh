@@ -45,7 +45,7 @@ Note: Environment variables DOMAIN_HOME and/or ORACLE_HOME must be defined,
 depending on the processing options.
 
 Note: The ORACLE_HOME listing feature (-o + -l) is intended for reference only.
-Manual replacement of JAVA_HOME under $ORACLE_HOME is not required; this script
+Manual replacement of JAVA_HOME under $ORACLE_HOME is not recommended; this script
 follows Oracle's official update method (setProperty.sh) only, for ORACLE_HOME.
 Some old JAVA_HOME paths may remain after a change, but this is generally not an
 issue --just leave them unless specifically instructed otherwise by Oracle Support.
