@@ -6,12 +6,11 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.1.11-1
+# Version 2.1.12
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
-# Below is used only for DOMAIN_HOME
-OLD_DOMAIN_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
+OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
 
 # --- SAFE_MODE: Prevent any accidental modification during testing or dry runs ---
 # !!! WARNING !!!
@@ -37,7 +36,7 @@ Usage: $MYBASENAME [OPTION]
   -o: Process ORACLE_HOME (OUI JAVA_HOME property).
       If neither or both -d and -o are specified, both locations are processed.
   -t <JAVA_HOME>: Test for occurrences of the given JAVA_HOME string under DOMAIN_HOME
-      and/or ORACLE_HOME instantly, without editing OLD_DOMAIN_JDK_STRING definition.
+      and/or ORACLE_HOME instantly, without editing OLD_JDK_STRING definition.
       No files will be modified, as this option always implies -l (list-only).
   -h: Show this help.
 
@@ -75,7 +74,7 @@ if [ "$SAFE_MODE" = "1" ]; then
     echo "Warning: Script is running in SAFE_MODE. No modifications will be made, regardless of what options are passed at runtime."
     if [ -n "$JAVA_HOME" ]; then
         NEW_JDK_STRING="$JAVA_HOME"
-        OLD_DOMAIN_JDK_STRING="$JAVA_HOME"
+        OLD_JDK_STRING="$JAVA_HOME"
         echo "Both search and replace strings set to current system JAVA_HOME: $JAVA_HOME"
     fi
     echo
@@ -97,11 +96,11 @@ if [ $DO_OUI -eq 1 ] && [ -z "$ORACLE_HOME" ]; then
     exit 2
 fi
 
-# Prepare OUI old JDK string if needed
-if [ $DO_OUI -eq 1 ] && [ -z "$TEST_JDK_STRING" ]; then
+# Prepare OUI current JDK string if needed
+if [ $DO_OUI -eq 1 ]; then
     OUI_BIN="$ORACLE_HOME/oui/bin"
-    OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
-    if [ -z "$OLD_OUI_JDK_STRING" ]; then
+    CURRENT_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
+    if [ -z "$CURRENT_OUI_JDK_STRING" ]; then
         echo "Error: Failed to fetch current JAVA_HOME from OUI. Either 'getProperty.sh' encountered an error, or the JAVA_HOME property is empty or missing."
         exit 2
     fi
@@ -109,15 +108,11 @@ fi
 
 # Set active search variables and target labels
 if [ -n "$TEST_JDK_STRING" ]; then
-    SEARCH_DOMAIN_JDK_STRING="$TEST_JDK_STRING"
-    target_domain="TEST"
-    SEARCH_OUI_JDK_STRING="$TEST_JDK_STRING"
-    target_oui="TEST"
+    SEARCH_JDK_STRING="$TEST_JDK_STRING"
+    target_label="TEST"
 else
-    SEARCH_DOMAIN_JDK_STRING="$OLD_DOMAIN_JDK_STRING"
-    target_domain="OLD_DOMAIN"
-    SEARCH_OUI_JDK_STRING="$OLD_OUI_JDK_STRING"
-    target_oui="OLD_OUI"
+    SEARCH_JDK_STRING="$OLD_JDK_STRING"
+    target_label="OLD"
 fi
 
 # Function: Escape the old/new JDK strings for Perl regex and replacement (DOMAIN_HOME)
@@ -130,26 +125,27 @@ escape_perl_replace() {
 
 if [ $DO_DOMAIN -eq 1 ]; then
     if [ -z "$TEST_JDK_STRING" ]; then
-        PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_DOMAIN_JDK_STRING")
+        PERL_DOMAIN_OLD=$(escape_perl_regex "$OLD_JDK_STRING")
         PERL_DOMAIN_NEW=$(escape_perl_replace "$NEW_JDK_STRING")
     fi
 fi
 
-# Function: find files in DOMAIN_HOME
-find_files_domain() {
-    if [ "$VERBOSE_LIST" = "1" ]; then
-        grep -Fnr "$SEARCH_DOMAIN_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out"
-    else
-        grep -FIlr "$SEARCH_DOMAIN_JDK_STRING" "$DOMAIN_HOME" --exclude-dir logs --exclude-dir tmp --exclude-dir adr | grep -Ev "\.log|\.out"
-    fi
-}
+# Function: Find files containing the given path string
+find_files() {
+    # arg1:search_root arg2:string arg3-*:dirs_to_exclude(space-separated)
+    local search_root="$1"
+    local search_string="$2"
+    shift 2
+    local exclude_dirs=("$@")
+    local grep_excludes=()
+    for ex in "${exclude_dirs[@]}"; do
+        grep_excludes+=(--exclude-dir "$ex")
+    done
 
-# Function: find files in ORACLE_HOME (for report only)
-find_files_oracle() {
     if [ "$VERBOSE_LIST" = "1" ]; then
-        grep -Fnr "$SEARCH_OUI_JDK_STRING" "$ORACLE_HOME" --exclude-dir .patch_storage --exclude-dir logs --exclude-dir tmp | grep -Ev "\.log|\.out"
+        grep -Fnr "${grep_excludes[@]}" "$search_string" "$search_root" | grep -Ev "\.log|\.out"
     else
-        grep -FIlr "$SEARCH_OUI_JDK_STRING" "$ORACLE_HOME" --exclude-dir .patch_storage --exclude-dir logs --exclude-dir tmp | grep -Ev "\.log|\.out"
+        grep -FIlr "${grep_excludes[@]}" "$search_string" "$search_root" | grep -Ev "\.log|\.out"
     fi
 }
 
@@ -183,17 +179,17 @@ replace_domain_string() {
 # Process DOMAIN_HOME files if requested
 if [ $DO_DOMAIN -eq 1 ]; then
     echo "We are processing DOMAIN_HOME: $DOMAIN_HOME"
-    echo "${target_domain}_JDK_STRING: $SEARCH_DOMAIN_JDK_STRING"
+    echo "${target_label}_JDK_STRING: $SEARCH_JDK_STRING"
     if [ -z "$TEST_JDK_STRING" ]; then
         echo "NEW_JDK_STRING: $NEW_JDK_STRING"
     fi
 
-    file_list_domain=$(find_files_domain)
+    file_list_domain=$(find_files "$DOMAIN_HOME" "$SEARCH_JDK_STRING" logs tmp adr)
     if [ $LIST_ONLY -eq 1 ]; then
         if [ $VERBOSE_LIST -eq 1 ]; then
-            echo "Listing files and matching lines containing ${target_domain}_JDK_STRING ('$SEARCH_DOMAIN_JDK_STRING') in DOMAIN_HOME"
+            echo "Listing files and matching lines containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in DOMAIN_HOME"
         else
-            echo "Listing files containing ${target_domain}_JDK_STRING ('$SEARCH_DOMAIN_JDK_STRING') in DOMAIN_HOME"
+            echo "Listing files containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in DOMAIN_HOME"
         fi
         echo "-----------------------------------------------------------------------"
         if [ -z "$file_list_domain" ]; then
@@ -218,17 +214,17 @@ fi
 # Process ORACLE_HOME/OUI JAVA_HOME if requested
 if [ $DO_OUI -eq 1 ]; then
     echo "We are processing ORACLE_HOME: $ORACLE_HOME"
-    echo "${target_oui}_JDK_STRING: $SEARCH_OUI_JDK_STRING"
+    echo "${target_label}_JDK_STRING: $SEARCH_JDK_STRING"
     if [ -z "$TEST_JDK_STRING" ]; then
         echo "NEW_JDK_STRING: $NEW_JDK_STRING"
     fi
 
-    file_list_oracle=$(find_files_oracle)
+    file_list_oracle=$(find_files "$ORACLE_HOME" "$SEARCH_JDK_STRING" .patch_storage logs tmp)
     if [ $LIST_ONLY -eq 1 ]; then
         if [ $VERBOSE_LIST -eq 1 ]; then
-            echo "Listing files and matching lines containing ${target_oui}_JDK_STRING ('$SEARCH_OUI_JDK_STRING') in ORACLE_HOME"
+            echo "Listing files and matching lines containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in ORACLE_HOME"
         else
-            echo "Listing files containing ${target_oui}_JDK_STRING ('$SEARCH_OUI_JDK_STRING') in ORACLE_HOME"
+            echo "Listing files containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in ORACLE_HOME"
         fi
         echo "-----------------------------------------------------------------------"
         if [ -z "$file_list_oracle" ]; then
@@ -240,17 +236,26 @@ if [ $DO_OUI -eq 1 ]; then
         exit 0
     fi
 
+    # Before actual replacement, check if OLD_JDK_STRING matches current JAVA_HOME property
+    if [ -z "$TEST_JDK_STRING" ]; then
+        if [ "$OLD_JDK_STRING" != "$CURRENT_OUI_JDK_STRING" ]; then
+            echo "Error: OLD_JDK_STRING ('$OLD_JDK_STRING') does not match current OUI JAVA_HOME ('$CURRENT_OUI_JDK_STRING')."
+            echo "Aborting to prevent incorrect update. Please verify your configuration."
+            exit 2
+        fi
+    fi
+
     # Interactive confirmation before backup and update
     read -t 10 -p "Backup and update OUI JAVA_HOME? ([y]/n): " OUI_ACK
     : ${OUI_ACK:=y}
 
     if [ "$OUI_ACK" = "y" ] || [ "$OUI_ACK" = "Y" ]; then
         echo "Backing up current JAVA_HOME to OLD_JAVA_HOME property..."
-        "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$OLD_OUI_JDK_STRING"
+        "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$CURRENT_OUI_JDK_STRING"
         RESULT_OLD_JAVA_HOME=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
-        if [ "$RESULT_OLD_JAVA_HOME" != "$OLD_OUI_JDK_STRING" ]; then
+        if [ "$RESULT_OLD_JAVA_HOME" != "$CURRENT_OUI_JDK_STRING" ]; then
             echo "Error: Failed to back up to OLD_JAVA_HOME property in OUI."
-            echo "Expected: '$OLD_OUI_JDK_STRING'"
+            echo "Expected: '$CURRENT_OUI_JDK_STRING'"
             echo "Actual:   '$RESULT_OLD_JAVA_HOME'"
             exit 1
         fi
