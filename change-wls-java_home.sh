@@ -113,6 +113,13 @@ if [ $DO_OUI -eq 1 ]; then
         exit 2
     fi
 fi
+if [ $LIST_ONLY -eq 1 ] && [ $DO_OUI -eq 1 ]; then
+    if [ $OUI_BACKUP -eq 1 ] || [ $OUI_UPDATE -eq 1 ]; then
+        OUI_BACKUP=0
+        OUI_UPDATE=0
+        echo "List-only (-l) mode selected: OUI backup/update will NOT be performed."
+    fi
+fi
 
 # --- Environment variable checks ---
 if [ $DO_DOMAIN -eq 1 ] && [ -z "$DOMAIN_HOME" ]; then
