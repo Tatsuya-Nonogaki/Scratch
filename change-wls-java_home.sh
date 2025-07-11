@@ -130,9 +130,9 @@ if [ $DO_DOMAIN -eq 1 ]; then
     fi
 fi
 
-# Function: Find files containing the given path string
+# Function: Find files containing a given string under a root directory, excluding specified subdirectories.
 find_files() {
-    # arg1:search_root arg2:string arg3-*:dirs_to_exclude(space-separated)
+    # Usage: find_files <search_root> <search_string> [exclude_dir1 exclude_dir2 ...]
     local search_root="$1"
     local search_string="$2"
     shift 2
