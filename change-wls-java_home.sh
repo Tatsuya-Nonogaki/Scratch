@@ -57,6 +57,11 @@ Note: The ORACLE_HOME listing and property update features depend on Oracle's
 official scripts (setProperty.sh/getProperty.sh). Backup of OLD_JAVA_HOME must
 be performed while the old JDK is still present and valid in the filesystem.
 
+Note: If you use the ORACLE_HOME listing feature (-o + -l) shortly after updating
+JAVA_HOME (-o + -u), some files may still show the old JAVA_HOME path. This is normal
+and not a cause for concern. These files are typically updated later by WebLogic
+Server processes or related operations.
+
 *** WARNING: SAFE_MODE is enabled by default ***
     This prevents any modification of the Middleware environment.
     To allow actual changes, set SAFE_MODE=0 at the top of this script
