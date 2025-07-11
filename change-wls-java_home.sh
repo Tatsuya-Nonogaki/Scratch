@@ -299,7 +299,17 @@ if [ $DO_OUI -eq 1 ]; then
     fi
 
     if [ $OUI_UPDATE -eq 1 ]; then
-        # Update only (no backup)
+        # Check if OUI backup exists and matches OLD_JDK_STRING
+        OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
+        if [ -z "$OLD_OUI_JDK_STRING" ] || [ "$OLD_OUI_JDK_STRING" != "$OLD_JDK_STRING" ]; then
+            read -t 15 -p "OUI backup (OLD_JAVA_HOME) not found or does not match OLD_JDK_STRING. Continue with update? (y/[n]): " ACK </dev/tty
+            : ${ACK:=n}
+            if [ "$ACK" != "y" ] && [ "$ACK" != "Y" ]; then
+                echo "Update aborted. Please make a backup first using -o -b."
+                exit 1
+            fi
+        fi
+
         echo "Updating JAVA_HOME property..."
         "$OUI_BIN/setProperty.sh" -name JAVA_HOME -value "$NEW_JDK_STRING"
         RESULT_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
