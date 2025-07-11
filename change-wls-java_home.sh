@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.1
+# Version 2.2.2
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -246,7 +246,9 @@ if [ $DO_DOMAIN -eq 1 ]; then
             echo "$file_list_domain"
         fi
         echo "-----------------------------------------------------------------------"
+        exit 0
     else
+        echo "Starting replacement of JAVA_HOME string..."
         while read -r FNAME; do
             [ -z "$FNAME" ] && continue
             if [ ! -f "$FNAME" ]; then
@@ -255,6 +257,7 @@ if [ $DO_DOMAIN -eq 1 ]; then
             fi
             replace_domain_string "$FNAME"
         done <<< "$file_list_domain"
+        exit 0
     fi
 fi
 
@@ -284,9 +287,22 @@ if [ $DO_OUI -eq 1 ]; then
     fi
 
     if [ $OUI_BACKUP -eq 1 ]; then
-        # Backup only (no update)
+        echo "Starting OUI Backup phase of current JAVA_HOME property..."
+        if [ ! -d "$OLD_JDK_STRING" ] || \
+           [ ! -x "$OLD_JDK_STRING/bin/java" ] || \
+           { [ ! -f "$OLD_JDK_STRING/jre/lib/java.c" ] && [ ! -f "$OLD_JDK_STRING/lib/modules" ]; }; then
+            echo "Warning: The OLD_JDK_STRING directory ('$OLD_JDK_STRING') is missing, does not contain an executable bin/java, or lacks typical marker files (jre/lib/java.c or lib/modules)."
+            echo "Main cause may be that you already replaced or removed the old JDK before backing up this OUI property."
+            read -t 15 -p "Continue with backup anyway? (y/[n]): " ACK </dev/tty
+            : ${ACK:=n}
+            if [ "$ACK" != "y" ] && [ "$ACK" != "Y" ]; then
+                echo "Backup aborted."
+                exit 1
+            fi
+        fi
+
         echo "Backing up current JAVA_HOME to OLD_JAVA_HOME property..."
-        "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$CURRENT_OUI_JDK_STRING"
+        "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$OLD_JDK_STRING"
         RESULT_OLD_JAVA_HOME=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
         if [ "$RESULT_OLD_JAVA_HOME" != "$CURRENT_OUI_JDK_STRING" ]; then
             echo "Error: Failed to back up to OLD_JAVA_HOME property in OUI."
@@ -299,6 +315,7 @@ if [ $DO_OUI -eq 1 ]; then
     fi
 
     if [ $OUI_UPDATE -eq 1 ]; then
+        echo "Starting Update phase of OUI property..."
         # Check if OUI backup exists and matches OLD_JDK_STRING
         OLD_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
         if [ -z "$OLD_OUI_JDK_STRING" ] || [ "$OLD_OUI_JDK_STRING" != "$OLD_JDK_STRING" ]; then
