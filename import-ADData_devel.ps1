@@ -313,7 +313,7 @@ process {
         }
     }
 
-    # Convert old object DistinguishedName to new DN
+    # Calculate new target DN to place the given DistinguishedName of the object on
     function ConvertDNBase {
         param (
             [string]$oldDN,
