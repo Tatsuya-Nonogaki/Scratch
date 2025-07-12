@@ -288,10 +288,8 @@ if [ $DO_OUI -eq 1 ]; then
 
     if [ $OUI_BACKUP -eq 1 ]; then
         echo "Starting OUI Backup phase of current JAVA_HOME property..."
-        if [ ! -d "$OLD_JDK_STRING" ] || \
-           [ ! -x "$OLD_JDK_STRING/bin/java" ] || \
-           { [ ! -f "$OLD_JDK_STRING/jre/lib/java.c" ] && [ ! -f "$OLD_JDK_STRING/lib/modules" ]; }; then
-            echo "Warning: The OLD_JDK_STRING directory ('$OLD_JDK_STRING') is missing, does not contain an executable bin/java, or lacks typical marker files (jre/lib/java.c or lib/modules)."
+        if [ ! -d "$OLD_JDK_STRING" ] || [ ! -x "$OLD_JDK_STRING/bin/java" ]; then
+            echo "Warning: The OLD_JDK_STRING directory ('$OLD_JDK_STRING') is missing or does not contain an executable bin/java."
             echo "Main cause may be that you already replaced or removed the old JDK before backing up this OUI property."
             read -t 15 -p "Continue with backup anyway? (y/[n]): " ACK </dev/tty
             : ${ACK:=n}
