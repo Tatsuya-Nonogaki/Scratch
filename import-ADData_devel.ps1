@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.0.c
+  Version: 0.9.0.d
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -325,7 +325,7 @@ process {
         $cnPart = $dnParts | Where-Object { $_ -match "^CN=" }
         $ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
 
-        # Remove leading OUs according to '-TrimOU' argument
+        # --- 2. Remove leading OUs from ouParts array according to '-TrimOU' argument ---
         if ($TrimOUList -and $TrimOUList.Count -gt 0) {
             foreach ($trim in $TrimOUList) {
                 if ($ouParts.Count -gt 0 -and ($ouParts[0] -replace '^OU=', '').Trim() -eq $trim) {
@@ -337,10 +337,11 @@ process {
             Write-Log "debug :: ouParts after TrimOU: $($ouParts -join ',')"
         }
 
-        # --- 2. Compose the new OU path (if any OUs remain after Trim) ---
+        # --- 3. Compose the new OU path (if any OUs remain after Trim) ---
         $hasOUs = $ouParts.Count -gt 0
         $baseDC = $newDNPath -replace '^(OU=[^,]+,)*', ''  # Remove any OUs from newDNPath to get DC=...
 
+        # --- 3-A. In case any OUs remain ---
         if ($hasOUs) {
             $importTargetOU = ($ouParts -join ',') + "," + $newDNPath
 
@@ -373,8 +374,7 @@ process {
             return $importTargetOU
         }
 
-        # --- 3. Handle Users container and domain root logic ---
-        # Now only CN and DC remain
+        # --- 3-B. In case no OUs remain: only CN and DC remain ---
         $isUsersContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
         $isAtDomainRoot = $oldDN -match "^CN=.*?,DC="
 
