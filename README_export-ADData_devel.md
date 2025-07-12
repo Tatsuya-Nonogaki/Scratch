@@ -119,15 +119,13 @@ This example trims `OU=deeper,OU=sales` from the start of each DN path, if prese
 
 **Rules:**
 - Only plain OU names are allowed. Do not use `OU=` prefix, full DN fragments, or any other prefix.
-- Matching always occurs from the start (left-most) of the OU sequence.
+- Trimming only occurs if the source DN starts with the specified OU sequence (the left-most/most descendant OUs), and the match must be in exact order.
 - Trimming never removes `DC`, `CN`, or any components other than OUs.
 - The following are reserved words and are **not permitted as OU names in the `-TrimOU` argument**: `ou`, `cn`, `dc`, and `users` (case-insensitive match).  
   *Note: This is a local rule for this script, not a restriction imposed by Active Directory itself, but it prevents confusion and scripting errors.*
 - Empty patterns (e.g., `,,`) are invalid.
 - If any invalid name is detected, the script will abort with an error.
 - **Note:** When specifying multiple OU names for `-TrimOU`, always enclose the list in quotes (single or double), for example: `-TrimOU "deeper,sales"`. This ensures PowerShell passes the entire list as a single argument.
-
-The value must match the most descendant (left-most) OU sequence of the source DN, in exact order. Trimming only occurs if the source DN starts with the specified sequence.
 
 **Examples:**
 
