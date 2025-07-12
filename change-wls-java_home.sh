@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.2
+# Version 2.2.3
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -136,14 +136,8 @@ if [ $DO_OUI -eq 1 ] && [ -z "$ORACLE_HOME" ]; then
     exit 2
 fi
 
-# --- Prepare OUI JAVA_HOME string(s) ---
 if [ $DO_OUI -eq 1 ]; then
     OUI_BIN="$ORACLE_HOME/oui/bin"
-    CURRENT_OUI_JDK_STRING=$("$OUI_BIN/getProperty.sh" JAVA_HOME 2>/dev/null)
-    if [ -z "$CURRENT_OUI_JDK_STRING" ]; then
-        echo "Error: Failed to fetch current JAVA_HOME from OUI. Either 'getProperty.sh' encountered an error, or the JAVA_HOME property is empty or missing."
-        exit 2
-    fi
 fi
 
 # --- Shared/active search variable ---
@@ -302,9 +296,9 @@ if [ $DO_OUI -eq 1 ]; then
         echo "Backing up current JAVA_HOME to OLD_JAVA_HOME property..."
         "$OUI_BIN/setProperty.sh" -name OLD_JAVA_HOME -value "$OLD_JDK_STRING"
         RESULT_OLD_JAVA_HOME=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
-        if [ "$RESULT_OLD_JAVA_HOME" != "$CURRENT_OUI_JDK_STRING" ]; then
+        if [ "$RESULT_OLD_JAVA_HOME" != "$OLD_JDK_STRING" ]; then
             echo "Error: Failed to back up to OLD_JAVA_HOME property in OUI."
-            echo "Expected: '$CURRENT_OUI_JDK_STRING'"
+            echo "Expected: '$OLD_JDK_STRING'"
             echo "Actual:   '$RESULT_OLD_JAVA_HOME'"
             exit 1
         fi
