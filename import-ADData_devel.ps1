@@ -185,6 +185,17 @@ begin {
         throw "Error: At least one of -User, -UserFile, -Group, or -GroupFile must be specified."
     }
 
+    # UPN suffix sanity check
+    if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
+        $upnPattern = '^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}$'
+        if ($NewUPNSuffix -eq '' -or $NewUPNSuffix -notmatch $upnPattern) {
+            $msg = "Error: -NewUPNSuffix must be a non-empty domain-style string (e.g. 'company.local', 'example.com'), containing only letters, digits, dots and hyphens, and have at least one dot."
+            Write-Host $msg -ForegroundColor Red
+            Write-Log $msg
+            throw $msg
+        }
+    }
+
     # Determine protection option for new OUs
     if ($NoProtectNewOU) {
         $newOUcommonOpts = @{ ProtectedFromAccidentalDeletion = $false }
@@ -340,7 +351,7 @@ process {
 
         # --- 3. Compose the new DN path ---
         $hasOUs = $ouParts.Count -gt 0
-        $baseDC = $newDNPath -replace '^(OU=[^,]+,)*', ''  # Remove any OUs from newDNPath to get DC=...
+        $baseDC = $newDNPath -replace '^(OU=[^,]+,)*', ''
 
         # --- 3-A. In case any OUs remain ---
         if ($hasOUs) {
