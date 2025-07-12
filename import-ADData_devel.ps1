@@ -313,6 +313,7 @@ process {
         }
     }
 
+    # Convert old object DistinguishedName to new DN
     function ConvertDNBase {
         param (
             [string]$oldDN,
@@ -320,7 +321,7 @@ process {
             [switch]$CreateOUIfNotExists
         )
 
-        # --- 1. Parse and Trim OUs if $TrimOUList is set ---
+        # --- 1. Parse and split original DN into arrays ---
         $dnParts = $oldDN -split ","
         $cnPart = $dnParts | Where-Object { $_ -match "^CN=" }
         $ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
@@ -337,7 +338,7 @@ process {
             Write-Log "debug :: ouParts after TrimOU: $($ouParts -join ',')"
         }
 
-        # --- 3. Compose the new OU path (if any OUs remain after Trim) ---
+        # --- 3. Compose the new DN path ---
         $hasOUs = $ouParts.Count -gt 0
         $baseDC = $newDNPath -replace '^(OU=[^,]+,)*', ''  # Remove any OUs from newDNPath to get DC=...
 
@@ -374,7 +375,7 @@ process {
             return $importTargetOU
         }
 
-        # --- 3-B. In case no OUs remain: only CN and DC remain ---
+        # --- 3-B. In case no OUs remain: only CN and DC ---
         $isUsersContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
         $isAtDomainRoot = $oldDN -match "^CN=.*?,DC="
 
