@@ -188,30 +188,6 @@ If password is absent for a user, the account will be created but remain disable
 
 ---
 
-#### Usage Examples
-
-```powershell
-# Import AD Groups from CSV to a new domain, excluding system objects
-.\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -GroupFile ".\Groups_olddomain_local.csv"
-
-# Import AD Users from CSV to an OU on a domain, using a file dialog
-.\import-ADData.ps1 -DNPath "OU=osaka,DC=newdomain,DC=local" -User
-
-# Import AD Users and Groups, using default (safe) policy: OU objects without OU go onto CN=Users
-.\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -GroupFile "Groups.csv"
-
-# Import users, trimming two leading OUs and placing directly under domain root (not in CN=Users)
-.\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
-```
-
-#### Best Practices and Safety Tips
-
-- Always verify the target DNPath and run with test data before a production import.
-- Use `-NoUsersContainer` with caution; direct-to-root objects can cause confusion in large AD environments.
-- For bulk group/user imports, ensure all referenced groups will be created before member/user addition to avoid membership errors.
-
----
-
 ### 3. compare-ADCSV.ps1
 
 #### Overview
