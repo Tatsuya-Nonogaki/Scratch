@@ -83,24 +83,25 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 - Detailed logging of import operations.
 - Option to disable "protect from accidental deletion" for newly created OUs, useful for pre-validation etc.
 - Supports registering user passwords if provided in the CSV.
-- Advanced features for OU trimming and control over Users container placement (`-TrimOU`, `-NoUsersContainer`).
+- Advanced features for OU trimming and control over Users container placement (`-TrimOU`, `-NoUsersContainer`, `-NoForceUsersContainer`).
 
 #### Parameters
 
-| Parameter             | Alias   | Required | Description                                                                                           |
-|-----------------------|---------|----------|-------------------------------------------------------------------------------------------------------|
-| `-DNPath`             | `-p`    | Yes\*    | Target base DN for import (e.g., `DC=newdomain,DC=local` or `OU=sales,DC=newdomain,DC=local`).        |
-| `-DNPrefix`           | `-d`    | Yes\*    | Alternative to `-DNPath`. Dotted format (e.g., `unit.domain.local`).                                  |
-| `-DCDepth`            |         | No       | Depth of DC components in `-DNPrefix` (default: 2).                                                   |
-| `-User`               | `-u`    | No       | Import mode for users. Implied if `-UserFile` specified.                                              |
-| `-UserFile`           | `-uf`   | No       | Path to user CSV file. Dialog prompts if omitted and `-User` is set.                                  |
-| `-Group`              | `-g`    | No       | Import mode for groups. Implied if `-GroupFile` specified.                                            |
-| `-GroupFile`          | `-gf`   | No       | Path to group CSV file. Dialog prompts if omitted and `-Group` is set.                                |
-| `-IncludeSystemObject`|         | No       | Import critical system users/groups (normally dangerous).                                             |
-| `-NewUPNSuffix`       |         | No       | New suffix for UserPrincipalName. Defaults to value derived from `-DNPath`.                           |
-| `-NoProtectNewOU`     |         | No       | Newly created OUs will not be protected from accidental deletion.                                     |
-| `-TrimOU`             |         | No       | Remove one or more leading OUs from source DNs before import.                                         |
-| `-NoUsersContainer`   |         | No       | Place users/groups with no OU or in Users container directly under the domain root instead of `CN=Users,DC=...`.            |
+| Parameter                 | Alias   | Required | Description                                                                                           |
+|---------------------------|---------|----------|-------------------------------------------------------------------------------------------------------|
+| `-DNPath`                 | `-p`    | Yes\*    | Target base DN for import (e.g., `DC=newdomain,DC=local` or `OU=sales,DC=newdomain,DC=local`).        |
+| `-DNPrefix`               | `-d`    | Yes\*    | Alternative to `-DNPath`. Dotted format (e.g., `unit.domain.local`).                                  |
+| `-DCDepth`                |         | No       | Depth of DC components in `-DNPrefix` (default: 2).                                                   |
+| `-User`                   | `-u`    | No       | Import mode for users. Implied if `-UserFile` specified.                                              |
+| `-UserFile`               | `-uf`   | No       | Path to user CSV file. Dialog prompts if omitted and `-User` is set.                                  |
+| `-Group`                  | `-g`    | No       | Import mode for groups. Implied if `-GroupFile` specified.                                            |
+| `-GroupFile`              | `-gf`   | No       | Path to group CSV file. Dialog prompts if omitted and `-Group` is set.                                |
+| `-IncludeSystemObject`    |         | No       | Import critical system users/groups (normally dangerous).                                             |
+| `-NewUPNSuffix`           |         | No       | New suffix for UserPrincipalName. Defaults to value derived from `-DNPath`.                           |
+| `-NoProtectNewOU`         |         | No       | Newly created OUs will not be protected from accidental deletion.                                     |
+| `-TrimOU`                 |         | No       | Remove one or more leading OUs from source DNs before import.                                         |
+| `-NoUsersContainer`       |         | No       | Place users/groups with no OU or in Users container directly under the domain root instead of `CN=Users,DC=...`.            |
+| `-NoForceUsersContainer`  |         | No       | Import objects as their DN dictates: if the DN is directly under the domain root, import as is; if under Users container, import as is. Mutually exclusive with `-NoUsersContainer`. |
 
 > \*Either `-DNPath` or `-DNPrefix` is required. They are mutually exclusive.
 
@@ -137,20 +138,53 @@ This example trims `OU=deeper,OU=sales` from the start of each DN path, if prese
 
 ---
 
-##### -NoUsersContainer
+##### -NoUsersContainer and -NoForceUsersContainer
 
 By default, user or group objects imported directly under the domain root (with no OU) are placed in the domain's default container (`CN=Users,DC=...`).  
-If you specify `-NoUsersContainer`, such objects are instead created directly under the domain root (`DC=...`).
-
-**This applies in all situations:**  
-- When importing objects originally with no OU (exported from domain root).
-- When `-TrimOU` results in no OU remaining in the target DN.
+If you specify `-NoUsersContainer`, such objects are instead created directly under the domain root (`DC=...`).  
+If you specify `-NoForceUsersContainer`, objects are imported exactly as their DN dictates:  
+- If the DN was originally directly under the domain root, it is imported there.
+- If the DN was originally under the Users container, it remains in Users.
 
 **Precautions:**
-- Source DNs in the `CN=Users` container (which only occurs directly above the DC-root) are treated the same way.
+- These parameters are **mutually exclusive**; you must specify only one or neither.
 - Placing users or groups directly under the domain root is valid but not recommended for most environments.
-- Some tools/scripts may not expect user/group objects directly under the DC-root.
-- Use this option only if you are sure this is what you want.
+- Use these options only if you are sure this is what you want.
+
+---
+
+#### Password Handling and Account Enablement
+
+If you want to set a password for any users, add a `"Password"` column to the User CSV (not present in the original export) and put the password in plain text.  
+**Do note password is required to restore the "Enabled" flag of the account during import.**  
+If password is absent for a user, the account will be created but remain disabled.
+
+---
+
+#### Usage Examples
+
+```powershell
+# Import AD Groups from CSV to a new domain, excluding system objects
+.\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -GroupFile ".\Groups_olddomain_local.csv"
+
+# Import AD Users from CSV to an OU on a domain, using a file dialog
+.\import-ADData.ps1 -DNPath "OU=osaka,DC=newdomain,DC=local" -User
+
+# Import AD Users and Groups, using default (safe) policy: OU objects without OU go onto CN=Users
+.\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -GroupFile "Groups.csv"
+
+# Import users, trimming two leading OUs and placing directly under domain root (not in CN=Users)
+.\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
+
+# Import users, preserving DN structure (Users container or domain root) as-is
+.\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -NoForceUsersContainer
+```
+
+#### Best Practices and Safety Tips
+
+- Always verify the target DNPath and perform a test import before running in production.
+- Use `-NoUsersContainer` with caution; placing users or groups directly under the domain root can cause confusion in large AD environments. Many AD tools and scripts—including some Microsoft tools—do not expect or properly handle such objects.
+- Some group-to-group memberships may fail to register during bulk group import due to the order of records in the CSV. In such cases, manual intervention may be required (e.g., remove the failed groups and rerun the import using the same CSV).
 
 ---
 
