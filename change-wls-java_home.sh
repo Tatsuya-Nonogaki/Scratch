@@ -238,8 +238,9 @@ if [ $DO_DOMAIN -eq 1 ]; then
     else
         echo "Starting replacement of JAVA_HOME string..."
 
-        if [ -n "$file_list_domain" ]; then
-            read -t 15 -p "Do you want me to process all matched files without further confirmation? ([y]/n): " BATCH_ACK </dev/tty
+        file_count=$(echo "$file_list_domain" | grep -c .)
+        if [ "$file_count" -ge 2 ]; then
+            read -t 15 -p "Do you want me to process all $file_count matched files without further confirmation? ([y]/n): " BATCH_ACK </dev/tty
             : ${BATCH_ACK:=n}
             if [ "$BATCH_ACK" = "y" ] || [ "$BATCH_ACK" = "Y" ]; then
                 AUTO_YES_ALL=1
