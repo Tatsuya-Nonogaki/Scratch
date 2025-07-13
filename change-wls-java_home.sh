@@ -166,11 +166,11 @@ find_files() {
     if [ "$VERBOSE_LIST" = "1" ]; then
         find "$search_root" -type f "${find_expr[@]}" \
             | xargs grep -Fn --color=auto "$search_string" 2>/dev/null \
-            | grep -Ev "\.log|\.out"
+            | grep -Ev '\.(log|out)$'
     else
         find "$search_root" -type f "${find_expr[@]}" \
             | xargs grep -Fl --color=auto "$search_string" 2>/dev/null \
-            | grep -Ev "\.log|\.out"
+            | grep -Ev '\.(log|out)$'
     fi
 }
 
