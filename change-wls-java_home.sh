@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.5
+# Version 2.2.5-a
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -39,9 +39,11 @@ Usage: $MYBASENAME [OPTION]
   -l: List-only mode. List matching files and exit without modification.
   -v: Verbose list-only mode. Print matching lines with filenames. Use together
       with -l or -t ; -v alone has no effect.
-  -t <JAVA_HOME>: Test for occurrences of the given JAVA_HOME string under DOMAIN_HOME
-      and/or ORACLE_HOME instantly, without editing OLD_JDK_STRING definition.
-      No files will be modified, as this option always implies -l (list-only).
+  -t <JDK_STRING>: Temporarily sets OLD_JDK_STRING to <JDK_STRING> for testing.
+      No files are modified, as this option always implies -l (list-only) option.
+      Use to check for files or configuration referencing a specific JDK path.
+      Useful when e.g.: Find files containing NEW_JDK_STRING before or after migration.
+                        Multiple JDK versions/releases are installed.
   -h: Show this help.
 
 Note: Either -d or -o is required. They are mutually exclusive.
@@ -276,6 +278,10 @@ if [ $DO_OUI -eq 1 ]; then
 
     file_list_oracle=$(find_files "$ORACLE_HOME" "$SEARCH_JDK_STRING" ".patch_storage" "logs" "tmp" "inventory/backup")
     if [ $LIST_ONLY -eq 1 ]; then
+        CURRENT_OUI_JAVA_HOME=$("$OUI_BIN/getProperty.sh" OLD_JAVA_HOME 2>/dev/null)
+        echo "Current OUI JAVA_HOME property: $CURRENT_OUI_JAVA_HOME"
+        echo
+
         if [ $VERBOSE_LIST -eq 1 ]; then
             echo "Listing files and matching lines containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in ORACLE_HOME"
         else
