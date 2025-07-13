@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.4
+# Version 2.2.5
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -86,12 +86,9 @@ done
 # --- SAFE_MODE ENFORCEMENT ---
 if [ "$SAFE_MODE" = "1" ]; then
     LIST_ONLY=1
-    echo "Warning: Script is running in SAFE_MODE. No modifications will be made, regardless of what options are passed at runtime."
-    if [ -n "$JAVA_HOME" ]; then
-        NEW_JDK_STRING="$JAVA_HOME"
-        OLD_JDK_STRING="$JAVA_HOME"
-        echo "Both search and replace strings set to current system JAVA_HOME: $JAVA_HOME"
-    fi
+    NEW_JDK_STRING="$OLD_JDK_STRING"
+    echo "Warning: Script is running in SAFE_MODE. No modifications will be made."
+    echo "NEW_JDK_STRING set to OLD_JDK_STRING ('$OLD_JDK_STRING') to prevent unintended changes."
     echo
 fi
 
@@ -217,7 +214,12 @@ if [ $DO_DOMAIN -eq 1 ]; then
     echo "Processing DOMAIN_HOME: $DOMAIN_HOME"
     echo "${target_label}_JDK_STRING: $SEARCH_JDK_STRING"
     if [ -z "$TEST_JDK_STRING" ]; then
-        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
+        echo -n "NEW_JDK_STRING: $NEW_JDK_STRING"
+        if [ "$SAFE_MODE" = "1" ]; then
+            echo " (SAFE_MODE)"
+        else
+            echo
+        fi
     fi
 
     file_list_domain=$(find_files "$DOMAIN_HOME" "$SEARCH_JDK_STRING" "logs" "tmp" "adr")
@@ -264,7 +266,12 @@ if [ $DO_OUI -eq 1 ]; then
     echo "Processing ORACLE_HOME: $ORACLE_HOME"
     echo "${target_label}_JDK_STRING: $SEARCH_JDK_STRING"
     if [ -z "$TEST_JDK_STRING" ]; then
-        echo "NEW_JDK_STRING: $NEW_JDK_STRING"
+        echo -n "NEW_JDK_STRING: $NEW_JDK_STRING"
+        if [ "$SAFE_MODE" = "1" ]; then
+            echo " (SAFE_MODE)"
+        else
+            echo
+        fi
     fi
 
     file_list_oracle=$(find_files "$ORACLE_HOME" "$SEARCH_JDK_STRING" ".patch_storage" "logs" "tmp" "inventory/backup")
