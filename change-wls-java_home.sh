@@ -139,6 +139,11 @@ if [ $DO_OUI -eq 1 ]; then
     OUI_BIN="$ORACLE_HOME/oui/bin"
 fi
 
+if [ ! -x "$OUI_BIN/getProperty.sh" ]; then
+    echo "'$OUI_BIN/getProperty.sh' not found or not executable; Make sure Oracle WebLogic Server is properly installed."
+    exit 2
+fi
+
 # --- Shared/active search variable ---
 if [ -n "$TEST_JDK_STRING" ]; then
     SEARCH_JDK_STRING="$TEST_JDK_STRING"
