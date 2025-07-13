@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.3
+# Version 2.2.4
 
 ### Edit JAVA_HOME strings here:
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
@@ -191,7 +191,6 @@ fi
 
 # Function: replace string in DOMAIN_HOME files
 replace_domain_string() {
-    # If AUTO_YES_ALL is set, always proceed
     if [ $AUTO_YES_ALL -eq 1 ]; then
         echo "processing '$1'"
         perl -pi -e "s%$PERL_DOMAIN_OLD%$PERL_DOMAIN_NEW%g;" "$1"
@@ -200,16 +199,11 @@ replace_domain_string() {
 
     local ACK
     echo "string found in '$1'"
-    read -t 10 -p "Do you want me to proceed? ([y]/n/a(=all)): " ACK </dev/tty
+    read -t 10 -p "Do you want me to proceed? ([y]/n): " ACK </dev/tty
     : ${ACK:=y}
 
     if [ "$ACK" = "y" ] || [ "$ACK" = "Y" ]; then
         echo -e "processing '$1'\n"
-        perl -pi -e "s%$PERL_DOMAIN_OLD%$PERL_DOMAIN_NEW%g;" "$1"
-    elif [ "$ACK" = "a" ] || [ "$ACK" = "A" ]; then
-        echo "processing '$1'"
-        echo -e "Continue processing in non-interactive mode.\n"
-        AUTO_YES_ALL=1
         perl -pi -e "s%$PERL_DOMAIN_OLD%$PERL_DOMAIN_NEW%g;" "$1"
     else
         echo -e "skipped\n"
@@ -243,6 +237,15 @@ if [ $DO_DOMAIN -eq 1 ]; then
         exit 0
     else
         echo "Starting replacement of JAVA_HOME string..."
+
+        if [ -n "$file_list_domain" ]; then
+            read -t 15 -p "Do you want me to process all matched files without further confirmation? ([y]/n): " BATCH_ACK </dev/tty
+            : ${BATCH_ACK:=n}
+            if [ "$BATCH_ACK" = "y" ] || [ "$BATCH_ACK" = "Y" ]; then
+                AUTO_YES_ALL=1
+            fi
+        fi
+
         while read -r FNAME; do
             [ -z "$FNAME" ] && continue
             if [ ! -f "$FNAME" ]; then
