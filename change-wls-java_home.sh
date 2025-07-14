@@ -6,17 +6,46 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.5-a
+# Version 2.2.6
 
-### Edit JAVA_HOME strings here:
+# Procedure Outline: How this script involved in WebLogic Server JDK Replacement
+#
+# 1. Adjust the definitions of NEW_JDK_STRING and OLD_JDK_STRING in "User Specific Definition" section of this script to match your actual JAVA_HOME locations.
+#
+# 2. (Optional) List configuration files containing OLD_JDK_STRING under ORACLE_HOME (OUI: Oracle Universal Installer) and DOMAIN_HOME, using '-l' option:
+#    - For OUI:    ./change-wls-java_home.sh -o -l [-v]
+#    - For DOMAIN: ./change-wls-java_home.sh -d -l [-v]
+#
+# 3. Disable SAFE_MODE by setting SAFE_MODE=0 in "User Specific Definition" section (default: SAFE_MODE=1 for safeguard).
+#
+# 4. Backup the current OUI JAVA_HOME property before making any changes:
+#    - ./change-wls-java_home.sh -o -b
+#
+# 5. Install or update the new JDK binary/package.
+#    - Ensure the new JDK is correctly installed and accessible at NEW_JDK_STRING.
+#    - (Optional) Update system $JAVA_HOME environment variable (e.g., edit /etc/profile). You may need to log out and back in for this change to take effect.
+#
+# 6. Update the OUI JAVA_HOME property to the new JDK path:
+#    - ./change-wls-java_home.sh -o -u
+#
+# 7. Update DOMAIN_HOME configuration files to reference the new JDK path:
+#    - ./change-wls-java_home.sh -d
+#
+# 8. (Optional) Verify the old JDK path strings are gone by listing files or properties again using the '-l' option. You can also confirm files referencing the new JDK path by using '-t <NEW_JDK_STRING>'.
+#
+# See script contents for further details and usage options.
+
+### --- User Specific Definition Section - Begin ---
+# JAVA_HOME strings
 NEW_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_451-oracle-x64
 OLD_JDK_STRING=/usr/lib/jvm/jdk-1.8.0_411-oracle-x64
 
-# --- SAFE_MODE: Prevent any accidental modification during testing or dry runs ---
+# SAFE_MODE: Prevent any accidental modification during testing or dry runs ---
 # !!! WARNING !!!
 # SAFE_MODE is enabled by default to prevent accidental modification of the Middleware environment.
 # Set SAFE_MODE=0 **only after** you have reviewed and tested this script in your environment.
 SAFE_MODE=1
+### --- User Specific Definition Section - End ---
 
 MYBASENAME=$(basename "$0")
 LIST_ONLY=0
