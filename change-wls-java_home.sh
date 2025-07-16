@@ -6,7 +6,7 @@
 # Designed for Oracle WebLogic Server and Oracle Fusion Middleware environments 
 # where coordinated JDK path updates are needed.
 #
-# Version 2.2.6
+# Version 2.2.7
 
 # Procedure Outline: How this script involved in WebLogic Server JDK Replacement
 #
@@ -134,18 +134,20 @@ if [ $DO_DOMAIN -eq 0 ] && [ $DO_OUI -eq 0 ]; then
     show_help
     exit 2
 fi
+
 if [ $DO_OUI -eq 1 ]; then
     if [ $OUI_BACKUP -eq 1 ] && [ $OUI_UPDATE -eq 1 ]; then
         echo "Error: -b and -u are mutually exclusive in OUI mode."
         show_help
         exit 2
     fi
-    if [ $OUI_BACKUP -eq 0 ] && [ $OUI_UPDATE -eq 0 ]; then
-        echo "Error: In OUI mode you must specify either -b (backup) or -u (update)."
+    if [ $LIST_ONLY -eq 0 ] && [ $OUI_BACKUP -eq 0 ] && [ $OUI_UPDATE -eq 0 ]; then
+        echo "Error: In OUI mode you must specify either -b (backup), -u (update), or -l (list)."
         show_help
         exit 2
     fi
 fi
+
 if [ $LIST_ONLY -eq 1 ] && [ $DO_OUI -eq 1 ]; then
     if [ $OUI_BACKUP -eq 1 ] || [ $OUI_UPDATE -eq 1 ]; then
         OUI_BACKUP=0
@@ -159,18 +161,17 @@ if [ $DO_DOMAIN -eq 1 ] && [ -z "$DOMAIN_HOME" ]; then
     echo "Environment variable DOMAIN_HOME must be defined."
     exit 2
 fi
-if [ $DO_OUI -eq 1 ] && [ -z "$ORACLE_HOME" ]; then
-    echo "Environment variable ORACLE_HOME must be defined."
-    exit 2
-fi
 
 if [ $DO_OUI -eq 1 ]; then
+    if [ -z "$ORACLE_HOME" ]; then
+        echo "Environment variable ORACLE_HOME must be defined."
+        exit 2
+    fi
     OUI_BIN="$ORACLE_HOME/oui/bin"
-fi
-
-if [ ! -x "$OUI_BIN/getProperty.sh" ]; then
-    echo "'$OUI_BIN/getProperty.sh' not found or not executable; Make sure Oracle WebLogic Server is properly installed."
-    exit 2
+    if [ ! -x "$OUI_BIN/getProperty.sh" ]; then
+        echo "'$OUI_BIN/getProperty.sh' not found or not executable; Make sure Oracle WebLogic Server is properly installed."
+        exit 2
+    fi
 fi
 
 # --- Shared/active search variable ---
