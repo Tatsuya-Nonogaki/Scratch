@@ -33,7 +33,7 @@
 #
 # 8. (Optional) Verify the old JDK path strings are gone by listing files or properties again using the '-l' option. You can also confirm files referencing the new JDK path by using '-t <NEW_JDK_STRING>'.
 #
-# See script contents for further details and usage options.
+# See the help contents for further details and usage options.
 
 ### --- User Specific Definition Section - Begin ---
 # JAVA_HOME strings
