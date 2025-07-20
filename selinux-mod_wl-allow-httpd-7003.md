@@ -94,7 +94,7 @@ cd myhttpd_mod_wl
 
 ## Create a Port Type Module (Use Underscores in Names)
 
-**File: **``
+### File: `myhttpd_wls_type.te`
 
 ```te
 module myhttpd_wls_type 1.0;
