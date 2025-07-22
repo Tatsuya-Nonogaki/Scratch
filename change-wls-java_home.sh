@@ -185,24 +185,27 @@ fi
 
 # Function: Find files containing a given string under a root directory, excluding specified subdirectories or paths.
 find_files() {
-    # Usage: find_files <search_root> <search_string> [exclude_paths...]
+    # Usage: find_files <search_root> <search_string> [exclude_pattern ...]
     local search_root="$1"
     local search_string="$2"
     shift 2
-    local exclude_paths=("$@")
-    local find_expr=()
-    local path
+    local excludes=("$@")
 
-    for path in "${exclude_paths[@]}"; do
-        find_expr+=( ! -path "$search_root/$path/*" )
+    local prune_expr=()
+    for ex in "${excludes[@]}"; do
+        if [[ "$ex" == */* ]]; then
+            prune_expr+=( -path "$search_root/$ex" -prune -o )
+        else
+            prune_expr+=( -name "$ex" -prune -o )
+        fi
     done
 
     if [ "$VERBOSE_LIST" = "1" ]; then
-        find "$search_root" -type f "${find_expr[@]}" \
+        find "$search_root" "${prune_expr[@]}" -type f -print \
             | xargs grep -Fn --color=auto "$search_string" 2>/dev/null \
             | grep -Ev '\.(log|out)$'
     else
-        find "$search_root" -type f "${find_expr[@]}" \
+        find "$search_root" "${prune_expr[@]}" -type f -print \
             | xargs grep -Fl --color=auto "$search_string" 2>/dev/null \
             | grep -Ev '\.(log|out)$'
     fi
