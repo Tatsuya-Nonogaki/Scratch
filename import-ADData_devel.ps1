@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.1
+  Version: 0.9.2
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -356,7 +356,7 @@ process {
             if ($CreateOUIfNotExists) {
                 $ouList = $ouParts
                 [array]::Reverse($ouList)
-                $previousOUBase = $baseDC
+                $previousOUBase = $newDNPath
 
                 foreach ($ou in $ouList) {
                     $ou = $ou.Trim()
