@@ -57,7 +57,7 @@
 
   .PARAMETER TrimOU
   Optional. Removes one or more leading OUs from imported DistinguishedNames.
-  Accepts a comma-separated list of OU names (without 'OU=' prefix).
+  It accepts a comma-separated list of OU names (without 'OU=' prefix).
   Only plain OU names are allowed, matching from the start of the OU sequence.
   Reserved words (ou, cn, dc, users) are not permitted (case-insensitive match).
   Always enclose multiple names in quotes, e.g. -TrimOU "deeper,sales".
