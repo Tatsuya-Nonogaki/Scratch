@@ -262,7 +262,7 @@ if [ $DO_DOMAIN -eq 1 ]; then
         fi
     fi
 
-    file_list_domain=$(find_files "$DOMAIN_HOME" "$SEARCH_JDK_STRING" "logs" "tmp" "adr" "servers/*/logs")
+    file_list_domain=$(find_files "$DOMAIN_HOME" "$SEARCH_JDK_STRING" "logs" "tmp" "adr")
     if [ $LIST_ONLY -eq 1 ]; then
         if [ $VERBOSE_LIST -eq 1 ]; then
             echo "Listing files and matching lines containing ${target_label}_JDK_STRING ('$SEARCH_JDK_STRING') in DOMAIN_HOME"
