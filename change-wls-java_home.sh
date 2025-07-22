@@ -183,9 +183,9 @@ else
     target_label="OLD"
 fi
 
-# Function: Find files containing a given string under a root directory, excluding specified subdirectories or paths.
+# Function: Find files containing a given string under a root directory, excluding specified subdirectories or directory paths.
 find_files() {
-    # Usage: find_files <search_root> <search_string> [exclude_pattern ...]
+    # Usage: find_files <search_root> <search_string> [exclude_dir_pattern ...]
     local search_root="$1"
     local search_string="$2"
     shift 2
