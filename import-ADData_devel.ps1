@@ -55,16 +55,11 @@
  .PARAMETER NoProtectNewOU
   Optional. If set, newly created OUs will not be protected from accidental deletion.
 
- .PARAMETER TrimOU
-  Optional. Remove one or more leading OUs from source DNs before import.
-  Accepts a comma-separated list or full DN (e.g., "OU=deeper,OU=sales" or "deeper,sales").
-  Useful for flattening or partially flattening OU hierarchies during migration.
-
   .PARAMETER TrimOU
   Optional. Removes one or more leading OUs from imported DistinguishedNames.
   Accepts a comma-separated list of OU names (without 'OU=' prefix).
   Only plain OU names are allowed, matching from the start of the OU sequence.
-  Reserved words (ou, cn, dc, users) are not permitted (case-insensitive, script-local rule).
+  Reserved words (ou, cn, dc, users) are not permitted (case-insensitive match).
   Always enclose multiple names in quotes, e.g. -TrimOU "deeper,sales".
   For full details and examples, see the README.
 
