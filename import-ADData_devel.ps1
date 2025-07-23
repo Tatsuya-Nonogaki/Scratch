@@ -383,24 +383,32 @@ process {
 
         # --- 3-B. In case no OUs remain: only CN and DC ---
         $isUsersContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
-        $isAtDomainRoot = $oldDN -match "^CN=.*?,DC="
+        $importBaseHasOU = $newDNPath -match '^OU='
 
-        # Policy matrix based on switches
         if ($NoUsersContainer) {
-            # Always place at domain root (strip Users container)
-            return $baseDC
+            # Always place at domain base (strip Users container)
+            return $newDNPath
         }
         elseif ($NoForceUsersContainer) {
-            # Place as-is: if Users container, keep; if domain root, keep
+            # Place as-is: if Users container, keep; else domain base
             if ($isUsersContainer) {
-                return "CN=Users," + $baseDC
+                # If import base has OU, ignore CN=Users (place in OU); else, keep Users container
+                if ($importBaseHasOU) {
+                    return $newDNPath
+                } else {
+                    return "CN=Users," + $baseDC
+                }
             } else {
-                return $baseDC
+                return $newDNPath
             }
         }
         else {
-            # Default: force into Users container if no OU present
-            return "CN=Users," + $baseDC
+            # Default: If import base has OU, place in that OU; else, in CN=Users
+            if ($importBaseHasOU) {
+                return $newDNPath
+            } else {
+                return "CN=Users," + $baseDC
+            }
         }
     }
 
