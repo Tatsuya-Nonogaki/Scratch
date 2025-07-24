@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.2
+  Version: 0.9.3
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -56,10 +56,12 @@
   Optional. If set, newly created OUs will not be protected from accidental deletion.
 
   .PARAMETER TrimOU
-  Optional. Removes one or more leading OUs from imported DistinguishedNames.
-  It accepts a comma-separated list of OU names (without 'OU=' prefix).
-  Only plain OU names are allowed, matching from the start of the OU sequence.
-  Reserved words (ou, cn, dc, users) are not permitted (case-insensitive match).
+  Optional. The list of OU names is matched against the rightmost (nearest to domain 
+  root) OU components of each object's DN. If all components match in exact order, 
+  they are trimmed.
+  It accepts a comma-separated list of OU names (without 'OU=' prefix). Only plain 
+  OU names are allowed.
+  Reserved words (ou, cn, dc, users, =) are not permitted (case-insensitive match).
   Always enclose multiple names in quotes, e.g. -TrimOU "deeper,sales".
   For full details and examples, see the README.
 
@@ -86,7 +88,11 @@
   .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -GroupFile "Groups.csv"
 
  .EXAMPLE
-  # Import users, trimming two leading OUs and placing directly under domain root (not in CN=Users)
+  # Import users, trimming OUs "deeper" and "sales" from the domain-root side.
+  # For example, if the source DN is:
+  #   CN=foo,OU=deeper,OU=sales,DC=olddomain,DC=local
+  # then -TrimOU "deeper,sales" will result in:
+  #   CN=foo,DC=domain,DC=local
   .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
 #>
 [CmdletBinding()]
@@ -201,17 +207,24 @@ begin {
     # TrimOU parsing and validation
     $TrimOUList = @()
     if ($PSBoundParameters.ContainsKey('TrimOU')) {
-        $reservedWords = @('ou', 'cn', 'dc', 'users')
+        $reservedWords = @('ou', 'cn', 'dc', 'users', '=')
         $TrimOUList = $TrimOU -split ',' | ForEach-Object { $_.Trim() }
+        $trimCount = $TrimOUList.Count
 
-        $invalid = $TrimOUList | Where-Object { ($_ -eq '') -or ($reservedWords -contains $_.ToLower()) }
-        if ($invalid.Count -gt 0) {
-            $msg = "Error: -TrimOU may only contain valid OU names (no reserved words or empty values). Invalid entries: " + ($invalid -join ', ')
-            Write-Host $msg -ForegroundColor Red
-            Write-Log $msg
-            throw $msg
+        if ($TrimOUList -and $trimCount -gt 0) {
+            $invalid = $TrimOUList | Where-Object {
+                ($_ -eq '') -or ($reservedWords -contains $_.ToLower()) -or ($_.Contains('='))
+            }
+
+            $invalid = $TrimOUList | Where-Object { ($_ -eq '') -or ($reservedWords -contains $_.ToLower()) }
+            if ($invalid.Count -gt 0) {
+                $msg = "Error: -TrimOU may only contain valid OU names (no reserved words or empty values). Invalid entries: " + ($invalid -join ', ')
+                Write-Host $msg -ForegroundColor Red
+                Write-Log $msg
+                throw $msg
+            }
+            Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
         }
-        Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
     }
 }
 
@@ -333,12 +346,20 @@ process {
         $ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
 
         # --- 2. Remove leading OUs from ouParts array according to '-TrimOU' argument ---
-        if ($TrimOUList -and $TrimOUList.Count -gt 0) {
-            foreach ($trim in $TrimOUList) {
-                if ($ouParts.Count -gt 0 -and ($ouParts[0] -replace '^OU=', '').Trim() -eq $trim) {
-                    $ouParts = $ouParts[1..($ouParts.Count - 1)]
-                } else {
-                    break
+        if ($TrimOUList -and $trimCount -gt 0) {
+            $ouNames = $ouParts | ForEach-Object { ($_ -replace '^OU=', '').Trim() }
+            if ($ouNames.Count -ge $trimCount) {
+                $ouNamesTail = $ouNames[($ouNames.Count - $trimCount)..($ouNames.Count - 1)]
+                $match = $true
+                for ($i = 0; $i -lt $trimCount; $i++) {
+                    if ($ouNamesTail[$i].ToLower() -ne $TrimOUList[$i].ToLower()) {
+                        $match = $false
+                        break
+                    }
+                }
+                if ($match) {
+                    # Remove the matching OUs from the end
+                    $ouParts = $ouParts[0..($ouParts.Count - $trimCount - 1)]
                 }
             }
             Write-Log "debug :: ouParts after TrimOU: $($ouParts -join ',')"
