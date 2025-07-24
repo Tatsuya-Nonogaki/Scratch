@@ -216,7 +216,6 @@ begin {
                 ($_ -eq '') -or ($reservedWords -contains $_.ToLower()) -or ($_.Contains('='))
             }
 
-            $invalid = $TrimOUList | Where-Object { ($_ -eq '') -or ($reservedWords -contains $_.ToLower()) }
             if ($invalid.Count -gt 0) {
                 $msg = "Error: -TrimOU may only contain valid OU names (no reserved words or empty values). Invalid entries: " + ($invalid -join ', ')
                 Write-Host $msg -ForegroundColor Red
