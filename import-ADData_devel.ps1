@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.3
+  Version: 0.9.3d
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -154,7 +154,7 @@ begin {
             [string]$Message
         )
         $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        "$Timestamp - $Message" | Out-File -Append -FilePath $LogFilePath
+        "$Timestamp - $Message" | Out-File -Append -FilePath $LogFilePath -Encoding UTF8
     }
 
     # Arguments validation
@@ -342,9 +342,21 @@ process {
         # --- 1. Parse and split original DN into arrays ---
         $dnParts = $oldDN -split ","
         $cnPart = $dnParts | Where-Object { $_ -match "^CN=" }
-        $ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
+        $ouParts = @()
+        foreach ($part in $dnParts) {
+            if ($part -match "^OU=") {
+                $ouParts += $part
+            }
+        }
+        #$ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
 
         # --- 2. Remove leading OUs from ouParts array according to '-TrimOU' argument ---
+        Write-Log "debug :: original ouParts: $($ouParts -join '|')"
+        if ($ouParts.Count -gt 0 -and $ouParts[0].Length -le 2) {
+            Write-Log "Error: Detected malformed ouParts: $($ouParts -join '|')"
+            throw "TrimOU error: ouParts appears malformed (likely split into characters). Check your CSV DN format and delimiter."
+        }
+
         if ($TrimOUList -and $trimCount -gt 0) {
             $ouNames = $ouParts | ForEach-Object { ($_ -replace '^OU=', '').Trim() }
             if ($ouNames.Count -ge $trimCount) {
