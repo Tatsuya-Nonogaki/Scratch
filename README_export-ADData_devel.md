@@ -133,13 +133,13 @@ This example trims `OU=sales` first, then `OU=deeper`, from the **rightmost** OU
 
 **Examples:**
 
-| Exported DN                                         | -TrimOU Argument | Resulting Path After Trim              | Explanation                                                       |
-|-----------------------------------------------------|------------------|----------------------------------------|-------------------------------------------------------------------|
-| OU=deeper,OU=sales,DC=domain,DC=local              | sales            | OU=deeper,DC=domain,DC=local           | Match (rightmost OU is "sales"), only "sales" trimmed             |
-| OU=deeper,OU=sales,DC=domain,DC=local              | deeper           | OU=deeper,OU=sales,DC=domain,DC=local  | No match (rightmost OU is "sales", not "deeper")                  |
-| OU=deeper,OU=sales,DC=domain,DC=local              | deeper,sales     | DC=domain,DC=local                     | Match (rightmost sequence is "deeper,sales"), both OUs trimmed    |
-| OU=foo,OU=bar,OU=deeper,OU=sales,DC=domain,DC=local| deeper,sales     | OU=foo,OU=bar,DC=domain,DC=local       | Match (rightmost sequence), both OUs trimmed                      |
-| OU=foo,OU=bar,OU=deeper,OU=sales,DC=domain,DC=local| bar,deeper       | OU=foo,OU=bar,OU=deeper,OU=sales,DC=domain,DC=local | No match (rightmost OUs are "deeper,sales")         |
+| Exported DN                                        | -TrimOU Argument | Resulting Path After Trim        | Explanation                                                       |
+|----------------------------------------------------|------------------|----------------------------------|-------------------------------------------------------------------|
+| OU=deeper,OU=sales,DC=domain,DC=local              | sales            | OU=deeper,DC=domain,DC=local     | Match (rightmost OU is "sales"), only "sales" trimmed             |
+| OU=deeper,OU=sales,DC=domain,DC=local              | deeper           | [ unchanged ]                    | No match (rightmost OU is "sales", not "deeper")                  |
+| OU=deeper,OU=sales,DC=domain,DC=local              | deeper,sales     | DC=domain,DC=local               | Match (rightmost sequence is "deeper,sales"), both OUs trimmed    |
+| OU=foo,OU=bar,OU=deeper,OU=sales,DC=domain,DC=local| deeper,sales     | OU=foo,OU=bar,DC=domain,DC=local | Match (rightmost sequence), both OUs trimmed                      |
+| OU=foo,OU=bar,OU=deeper,OU=sales,DC=domain,DC=local| bar,deeper       | [ unchanged ]                    | No match (rightmost OUs are "deeper,sales")                       |
 
 ---
 
