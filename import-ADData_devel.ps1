@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.3d
+  Version: 0.9.4
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -222,7 +222,7 @@ begin {
                 Write-Log $msg
                 throw $msg
             }
-            Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
+          # Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
         }
     }
 }
@@ -322,7 +322,6 @@ process {
         $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath
 
         if ($cnPart) {
-          # Write-Log "debug :: Get-NewDN : cnPart = $cnPart    ouPath = $ouPath"
             Write-Log "debug :: Get-NewDN : return ${cnPart},$ouPath"
             return "${cnPart},$ouPath"
         } else {
@@ -340,7 +339,7 @@ process {
         )
 
         # --- 1. Parse and split original DN into arrays ---
-        $dnParts = $oldDN -split ","
+        $dnParts = $oldDN -split "," | ForEach-Object { $_.Trim() }
         $cnPart = $dnParts | Where-Object { $_ -match "^CN=" }
         $ouParts = @()
         foreach ($part in $dnParts) {
@@ -348,10 +347,10 @@ process {
                 $ouParts += $part
             }
         }
-        #$ouParts = $dnParts | Where-Object { $_ -match "^OU=" }
 
         # --- 2. Remove leading OUs from ouParts array according to '-TrimOU' argument ---
-        Write-Log "debug :: original ouParts: $($ouParts -join '|')"
+      # Write-Log "debug :: ConvertDNBase :: original oldDN: '$oldDN'"
+        Write-Log "debug :: ConvertDNBase :: original ouParts: $($ouParts -join '|')"
         if ($ouParts.Count -gt 0 -and $ouParts[0].Length -le 2) {
             Write-Log "Error: Detected malformed ouParts: $($ouParts -join '|')"
             throw "TrimOU error: ouParts appears malformed (likely split into characters). Check your CSV DN format and delimiter."
@@ -359,21 +358,27 @@ process {
 
         if ($TrimOUList -and $trimCount -gt 0) {
             $ouNames = $ouParts | ForEach-Object { ($_ -replace '^OU=', '').Trim() }
+
             if ($ouNames.Count -ge $trimCount) {
-                $ouNamesTail = $ouNames[($ouNames.Count - $trimCount)..($ouNames.Count - 1)]
+                $ouNamesRev = @($ouNames)[-1..0]          # reversed order (rightmost first)
+                $TrimOUListRev = @($TrimOUList)[-1..0]    # reversed order (rightmost first)
                 $match = $true
                 for ($i = 0; $i -lt $trimCount; $i++) {
-                    if ($ouNamesTail[$i].ToLower() -ne $TrimOUList[$i].ToLower()) {
+                    if ($ouNamesRev[$i].ToString().ToLower() -ne $TrimOUListRev[$i].ToString().ToLower()) {
                         $match = $false
                         break
                     }
                 }
                 if ($match) {
-                    # Remove the matching OUs from the end
-                    $ouParts = $ouParts[0..($ouParts.Count - $trimCount - 1)]
+                    # Remove the last $trimCount elements (rightmost OUs), but if nothing remains, set to empty array
+                    if ($ouParts.Count - $trimCount - 1 -ge 0) {
+                        $ouParts = $ouParts[0..($ouParts.Count - $trimCount - 1)]
+                    } else {
+                        $ouParts = @()
+                    }
                 }
             }
-            Write-Log "debug :: ouParts after TrimOU: $($ouParts -join ',')"
+            Write-Log "debug :: ConvertDNBase :: ouParts after TrimOU: $($ouParts -join ',')"
         }
 
         # --- 3. Compose the new DN path ---
