@@ -100,7 +100,7 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 | `-IncludeSystemObject`    |         | No       | Import critical system users/groups (normally dangerous).                                             |
 | `-NewUPNSuffix`           |         | No       | New suffix for UserPrincipalName. Defaults to value derived from `-DNPath`.                           |
 | `-NoProtectNewOU`         |         | No       | Newly created OUs will not be protected from accidental deletion.                                     |
-| `-TrimOU`                 |         | No       | Remove one or more leading OUs from source DNs before import.                                         |
+| `-TrimOU`                 |         | No       | Remove one or more rightmost (nearest the domain root) OUs from source DNs before import.             |
 | `-NoUsersContainer`       |         | No       | Place users/groups with no OU or in Users container directly under the domain root instead of `CN=Users,DC=...`.            |
 | `-NoForceUsersContainer`  |         | No       | Import objects as their DN dictates: if the DN is directly under the domain root, import as is; if under Users container, import as is. Mutually exclusive with `-NoUsersContainer`. |
 
@@ -178,7 +178,7 @@ If password is absent for a user, the account will be created but remain disable
 # Import AD Users and Groups, using default (safe) policy: OU objects without OU go onto CN=Users
 .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -GroupFile "Groups.csv"
 
-# Import users, trimming two leading OUs and placing directly under domain root (not in CN=Users)
+# Import users, trimming two rightmost OUs and placing directly under domain root (not in CN=Users)
 .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
 
 # Import users, preserving DN structure (Users container or domain root) as-is
