@@ -785,6 +785,25 @@ process {
     Write-Host "Target DN Path: $DNPath"
     Write-Log "Target DN Path: $DNPath"
 
+    if ($PSBoundParameters.ContainsKey('TrimOU') -and $TrimOUList.Count -gt 0) {
+        $trimMsg = "Option: 'TrimOU' specified: " + ($TrimOUList -join ', ')
+        Write-Host $trimMsg
+        Write-Log $trimMsg
+    }
+    if ($NoUsersContainer) {
+        Write-Host "Option: 'NoUsersContainer' enabled"
+        Write-Log  "Option: 'NoUsersContainer' enabled"
+    }
+    if ($NoForceUsersContainer) {
+        Write-Host "Option: 'NoForceUsersContainer' enabled"
+        Write-Log  "Option: 'NoForceUsersContainer' enabled"
+    }
+    if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
+        $upnMsg = "Option: 'NewUPNSuffix' specified: $NewUPNSuffix"
+        Write-Host $upnMsg
+        Write-Log $upnMsg
+    }
+
     # Group data import
     if ($Group -or $GroupFile) {
         # Select the group file if not specified
