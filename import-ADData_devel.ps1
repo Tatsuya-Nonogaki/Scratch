@@ -534,7 +534,6 @@ Review your CSV. To override this check, use -NoClassCheck.)
             Test-ObjectClassColumn -CsvRows $users -ExpectClass 'user' -NoClassCheck:$NoClassCheck
 
             foreach ($usr in $users) {
-                $objectProps = $usr
                 $sAMAccountName = $usr.sAMAccountName
 
                 # Check existence of the user
@@ -738,7 +737,6 @@ Review your CSV. To override this check, use -NoClassCheck.)
             Test-ObjectClassColumn -CsvRows $groups -ExpectClass 'group' -NoClassCheck:$NoClassCheck
 
             foreach ($grp in $groups) {
-                $objectProps = $grp
                 $sAMAccountName = $grp.sAMAccountName
 
                 # Check existence of the group
