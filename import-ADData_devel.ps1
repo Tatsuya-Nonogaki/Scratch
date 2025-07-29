@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.4
+  Version: 0.9.4.a
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -43,6 +43,13 @@
  .PARAMETER GroupFile
   (Alias -gf) Path to group CSV file. If omitted with -Group, a file selection 
   dialog prompts you.
+
+ .PARAMETER NoClassCheck
+  By default, this script automatically checks that all records in the input file 
+  have an 'ObjectClass' matching the selected import mode (user or group), before 
+  importing anything. This switch disables the check, thus allowing you to import 
+  files that are missing the column, or that contain mixed or incorrect types.
+  Only use this if you know what you are doing.
 
  .PARAMETER IncludeSystemObject
   Optional. Import also critical system users/groups and trusted DOMAIN$ (normally 
@@ -121,6 +128,9 @@ param(
     [switch]$Group,
 
     [Parameter()]
+    [switch]$NoClassCheck,
+
+    [Parameter()]
     [Alias("gf")]
     [string]$GroupFile,
 
@@ -181,9 +191,23 @@ begin {
         throw "Error: -DNPath cannot be used together with -DNPrefix or -DCDepth."
     }
 
-    if (-not ($PSBoundParameters.ContainsKey('User') -or $PSBoundParameters.ContainsKey('UserFile') -or `
-              $PSBoundParameters.ContainsKey('Group') -or $PSBoundParameters.ContainsKey('GroupFile'))) {
+    # User and Group related parameter checks
+    if ($PSBoundParameters.ContainsKey('UserFile')) { $User = $true }
+    if ($PSBoundParameters.ContainsKey('GroupFile')) { $Group = $true }
+
+    if (-not ($User -or $Group)) {
         throw "Error: At least one of -User, -UserFile, -Group, or -GroupFile must be specified."
+    }
+
+    if ($User -and $Group) {
+        throw "Error: You cannot specify both User mode (-User and/or -UserFile) and Group mode (-Group and/or -GroupFile) at the same time. Please specify only one."
+    }
+
+    if ($User -and $PSBoundParameters.ContainsKey('GroupFile')) {
+        throw "Error: Option mismatch: -GroupFile cannot be used with User mode (-User or -UserFile)."
+    }
+    if ($Group -and $PSBoundParameters.ContainsKey('UserFile')) {
+        throw "Error: Option mismatch: -UserFile cannot be used with Group mode (-Group or -GroupFile)."
     }
 
     # UPN suffix sanity check
