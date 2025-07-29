@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.4.a
+  Version: 0.9.4-b
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -329,6 +329,39 @@ process {
         return $exists
     }
 
+    # Check if this records are of the expected class (i.e., user or group)
+    function Test-ObjectClassColumn {
+        param (
+            [array]$CsvRows,
+            [string]$ExpectClass,
+            [switch]$NoClassCheck
+        )
+
+        if ($NoClassCheck) { return } # Skip check if requested
+        if ($CsvRows.Count -eq 0) { return } # Nothing to check
+
+        # 1. Check column exists
+        if (-not ($CsvRows[0].PSObject.Properties.Name -contains 'ObjectClass')) {
+            throw "Error: The input file is missing the 'ObjectClass' column. To override this check, use -NoClassCheck."
+        }
+
+        # 2. Check all values match expected class
+        $mismatches = $CsvRows | Where-Object { $_.ObjectClass -ne $ExpectClass }
+        if ($mismatches.Count -gt 0) {
+            $firstFew = $mismatches | Select-Object -First 3
+            $sampleInfo = $firstFew | ForEach-Object { 
+                "sAMAccountName=$($_.sAMAccountName), ObjectClass=$($_.ObjectClass)"
+            }
+            $msg = @"
+Error: ObjectClass mismatch detected in input file. $($mismatches.Count) records do not match the expected class '$ExpectClass'.
+Showing first 3 mismatches:
+$($sampleInfo -join "`n")
+Review your CSV. To override this check, use -NoClassCheck.)
+"@
+            throw $msg
+        }
+    }
+
     # Convert old object DistinguishedName to new DN
     function Get-NewDN {
         param (
@@ -483,9 +516,7 @@ process {
         if ($objectClass -eq "user") {
             $excludedUsers = @("SUPPORT_388945a0")
 
-            Import-Csv -Path $filePath | 
-              Where-Object {
-                # Exclude system user objects
+            $users = Import-Csv -Path $filePath | Where-Object {
                 if ($IncludeSystemObject) {
                     return $true
                 } else {
@@ -497,185 +528,189 @@ process {
                         return $true
                     }
                 }
-              } | 
-                ForEach-Object {
-                    $objectProps = $_
-                    $sAMAccountName = $_.sAMAccountName
+            }
 
-                    # Check existence of the user
-                    $userExists = Get-ADUser -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
+            # Ensure this records are of AD Users
+            Test-ObjectClassColumn -CsvRows $users -ExpectClass 'user' -NoClassCheck:$NoClassCheck
 
-                    if (-not $userExists) {
-                        # Construct parameters for New-ADUser
-                        Write-Host "Processing user sAMAccountName=`"$sAMAccountName`""
-                        Write-Log "Processing user sAMAccountName=`"$sAMAccountName`""
+            foreach ($usr in $users) {
+                $objectProps = $usr
+                $sAMAccountName = $usr.sAMAccountName
 
-                        $ouPath = ConvertDNBase -oldDN $_.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
-                        $managerDN = if ($_.Manager -ne "") { Get-NewDN -originalDN $_.Manager -DNPath $DNPath } else { $null }
+                # Check existence of the user
+                $userExists = Get-ADUser -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
 
-                        $newUserParams = @{
-                            Name           = $_.Name
-                            DisplayName    = $_.DisplayName
-                            SamAccountName = $sAMAccountName
-                            Description    = $_.Description
-                            GivenName      = $_.GivenName
-                            Surname        = $_.Surname
-                            Manager        = $managerDN
-                        }
+                if (-not $userExists) {
+                    # Construct parameters for New-ADUser
+                    Write-Host "Processing user sAMAccountName=`"$sAMAccountName`""
+                    Write-Log "Processing user sAMAccountName=`"$sAMAccountName`""
 
-                        Try {
-                            if ($ouPath -match '^CN=Users,DC=') {
-                                New-ADUser @newUserParams -ErrorAction Stop
-                                Write-Log "New-ADUser `@newUserParams"
-                            } else {
-                                New-ADUser @newUserParams -Path $ouPath -ErrorAction Stop
-                                Write-Log "New-ADUser `@newUserParams -Path $ouPath"
-                            }
-                        } Catch {
-                            Write-Error "Failed to create user ${sAMAccountName}: $_"
-                            Write-Log "Failed to create user: sAMAccountName=$sAMAccountName - $_"
-                        }
+                    $ouPath = ConvertDNBase -oldDN $usr.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
+                    $managerDN = if ($usr.Manager -ne "") { Get-NewDN -originalDN $usr.Manager -DNPath $DNPath } else { $null }
 
-                        $createdUser = Get-ADUser -Filter "SamAccountName -eq '$sAMAccountName'" -Properties DistinguishedName
-                        if ($createdUser) {
-                            Write-Host "User Created DistinguishedName=$($createdUser.DistinguishedName)"
-                            Write-Log "User Created: sAMAccountName=$sAMAccountName, DistinguishedName=$($createdUser.DistinguishedName)"
-                        }
-
-                        # Set additional properties using Set-ADUser
-                        $additionalProperties = @{
-                            ProfilePath      = $_.ProfilePath
-                            ScriptPath       = $_.ScriptPath
-                            Company          = $_.Company
-                            Department       = $_.Department
-                            Title            = $_.Title
-                            Office           = $_.Office
-                            OfficePhone      = $_.OfficePhone
-                            EmailAddress     = $_.EmailAddress
-                            StreetAddress    = $_.StreetAddress
-                            City             = $_.City
-                            State            = $_.State
-                            Country          = $_.Country
-                            PostalCode       = $_.PostalCode
-                            MobilePhone      = $_.MobilePhone
-                            HomePhone        = $_.HomePhone
-                            Fax              = $_.Fax
-                            Pager            = $_.Pager
-                        }
-
-                        foreach ($property in $additionalProperties.Keys) {
-                            if ($additionalProperties[$property] -ne $null -and $additionalProperties[$property] -ne "") {
-                                $params = @{
-                                    Identity = $sAMAccountName
-                                }
-                                $params[$property] = $additionalProperties[$property]
-                                Try {
-                                    Set-ADUser @params
-                                    Write-Host "  => Property $property set for user: $sAMAccountName"
-                                    Write-Log "Property $property set for user: sAMAccountName=$sAMAccountName"
-                                } Catch {
-                                    Write-Host "Warning: Failed to set property $property for user ${sAMAccountName}" -ForegroundColor Yellow
-                                    Write-Log "Failed to set property $property for user: sAMAccountName=$sAMAccountName - $_"
-                                }
-                            }
-                        }
-
-                        if ($_.UserPrincipalName -ne "") {
-                            # Convert UserPrincipalName to new suffix
-                            $upnParts = $_.UserPrincipalName -split "@"
-                            $upnPrefix = $upnParts[0]
-                            if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
-                                $upnSuffix =  $NewUPNSuffix
-                            } else {
-                                $upnSuffix = $DNPath -replace '^(OU=[^,]+,)*', '' -replace 'DC=', '' -replace ',', '.'
-                            }
-                            $newUserPrincipalName = "${upnPrefix}@${upnSuffix}"
-
-                            try {
-                                Set-ADUser -Identity $sAMAccountName -UserPrincipalName $newUserPrincipalName
-                                Write-Host "  => UserPrincipalName set for user: $sAMAccountName"
-                                Write-Log "UserPrincipalName `"$newUserPrincipalName`" set for user: sAMAccountName=$sAMAccountName"
-                            } catch {
-                                Write-Host "Warning: Failed to set UserPrincipalName for user ${sAMAccountName}" -ForegroundColor Yellow
-                                Write-Log "Failed to set UserPrincipalName `"$newUserPrincipalName`" for user: sAMAccountName=$sAMAccountName - $_"
-                            }
-                        }
-
-                        # Set password if the CSV provides Password
-                        if ($_.PSObject.Properties.Name -contains "Password" -and $_.Password -ne "") {
-                            try {
-                                $securePassword = ConvertTo-SecureString -String $_.Password -AsPlainText -Force
-                                Set-ADAccountPassword -Identity $sAMAccountName -NewPassword $securePassword -Reset
-                                Write-Host "  => Password set for user: $sAMAccountName"
-                                Write-Log "Password set for user: sAMAccountName=$sAMAccountName"
-                            } catch {
-                                Write-Error "Failed to set password for user ${sAMAccountName}: $_"
-                                Write-Log "Failed to set password for user: sAMAccountName=$sAMAccountName - $_"
-                            }
-                        }
-
-                        # Set "userAccountControl" property related special control bits
-                        try {
-                            $userFlags = [int]$_.userAccountControl
-
-                            if ($userFlags -band 0x80000) {                  # MustChangePassword
-                                Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
-                                Write-Host "  => MustChangePassword applied: ${sAMAccountName}"
-                                Write-Log "MustChangePassword applied: sAMAccountName=${sAMAccountName}"
-                            }
-                            if ($userFlags -band 0x40) {                     # CannotChangePassword
-                                $user = Get-ADUser -Identity $sAMAccountName
-                                Set-ACL -Path "AD:\$($user.DistinguishedName)" -AclObject (Get-ACL -Path "AD:\$($user.DistinguishedName)" | ForEach-Object { $_.Access | Where-Object { $_.ObjectType -eq [Guid]::Parse("4c164200-20c0-11d0-a768-00aa006e0529") -and $_.ActiveDirectoryRights -eq "ExtendedRight" -and $_.AccessControlType -eq "Deny" } })
-                                Write-Host "  => CannotChangePassword applied: ${sAMAccountName}"
-                                Write-Log "CannotChangePassword applied: sAMAccountName=${sAMAccountName}"
-                            }
-                            if ($userFlags -band 0x10000) {                  # PasswordNeverExpires
-                                Set-ADUser -Identity $sAMAccountName -PasswordNeverExpires $true
-                                Write-Host "  => PasswordNeverExpires applied: ${sAMAccountName}"
-                                Write-Log "PasswordNeverExpires applied: sAMAccountName=${sAMAccountName}"
-                            }
-
-                            # Enable or disable the account only if the password is set
-                            if ($userFlags -band 2) {
-                                Disable-ADAccount -Identity $sAMAccountName
-                                Write-Host "  => Account disabled: ${sAMAccountName}"
-                                Write-Log "Account disabled: sAMAccountName=${sAMAccountName}"
-                            } else {
-                                if ($_.PSObject.Properties.Name -contains "Password" -and $_.Password -ne "") {
-                                    Enable-ADAccount -Identity $sAMAccountName
-                                    Write-Host "  => Account enabled: ${sAMAccountName}"
-                                    Write-Log "Account enabled: sAMAccountName=${sAMAccountName}"
-                                } else {
-                                    Write-Host "Warning: Cannot enable account ${sAMAccountName} as no password is set" -ForegroundColor Yellow
-                                    Write-Log "Cannot enable account ${sAMAccountName} as no password is set"
-                                }
-                            }
-                        } catch {
-                            Write-Error "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
-                            Write-Log "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
-                        }
-
-                        # Add this user to groups
-                        $memberOfGroups = $_.MemberOf -split ';'
-                        foreach ($mgrp in $memberOfGroups) {
-                            if ($mgrp -ne "") {
-                                try {
-                                    $newDN = Get-NewDN -originalDN $mgrp -DNPath $DNPath
-
-                                    Add-ADGroupMember -Identity $newDN -Members $($createdUser.DistinguishedName)
-                                    Write-Host "Added user $sAMAccountName to group: $newDN"
-                                    Write-Log "User: sAMAccountName=$sAMAccountName added to group: $newDN"
-                                } catch {
-                                    Write-Host "Failed to add user $sAMAccountName to group $newDN. Error: $_" -ForegroundColor Red
-                                    Write-Log "Failed to add user sAMAccountName=$sAMAccountName to group: $newDN - $_"
-                                }
-                            }
-                        }
-                    } else {
-                        Write-Host "User $sAMAccountName already exists; skipping import"
-                        Write-Log "User Skipped (Already Exists): sAMAccountName=$sAMAccountName"
+                    $newUserParams = @{
+                        Name           = $usr.Name
+                        DisplayName    = $usr.DisplayName
+                        SamAccountName = $sAMAccountName
+                        Description    = $usr.Description
+                        GivenName      = $usr.GivenName
+                        Surname        = $usr.Surname
+                        Manager        = $managerDN
                     }
+
+                    Try {
+                        if ($ouPath -match '^CN=Users,DC=') {
+                            New-ADUser @newUserParams -ErrorAction Stop
+                            Write-Log "New-ADUser `@newUserParams"
+                        } else {
+                            New-ADUser @newUserParams -Path $ouPath -ErrorAction Stop
+                            Write-Log "New-ADUser `@newUserParams -Path $ouPath"
+                        }
+                    } Catch {
+                        Write-Error "Failed to create user ${sAMAccountName}: $_"
+                        Write-Log "Failed to create user: sAMAccountName=$sAMAccountName - $_"
+                    }
+
+                    $createdUser = Get-ADUser -Filter "SamAccountName -eq '$sAMAccountName'" -Properties DistinguishedName
+                    if ($createdUser) {
+                        Write-Host "User Created DistinguishedName=$($createdUser.DistinguishedName)"
+                        Write-Log "User Created: sAMAccountName=$sAMAccountName, DistinguishedName=$($createdUser.DistinguishedName)"
+                    }
+
+                    # Set additional properties using Set-ADUser
+                    $additionalProperties = @{
+                        ProfilePath      = $usr.ProfilePath
+                        ScriptPath       = $usr.ScriptPath
+                        Company          = $usr.Company
+                        Department       = $usr.Department
+                        Title            = $usr.Title
+                        Office           = $usr.Office
+                        OfficePhone      = $usr.OfficePhone
+                        EmailAddress     = $usr.EmailAddress
+                        StreetAddress    = $usr.StreetAddress
+                        City             = $usr.City
+                        State            = $usr.State
+                        Country          = $usr.Country
+                        PostalCode       = $usr.PostalCode
+                        MobilePhone      = $usr.MobilePhone
+                        HomePhone        = $usr.HomePhone
+                        Fax              = $usr.Fax
+                        Pager            = $usr.Pager
+                    }
+
+                    foreach ($property in $additionalProperties.Keys) {
+                        if ($additionalProperties[$property] -ne $null -and $additionalProperties[$property] -ne "") {
+                            $params = @{
+                                Identity = $sAMAccountName
+                            }
+                            $params[$property] = $additionalProperties[$property]
+                            Try {
+                                Set-ADUser @params
+                                Write-Host "  => Property $property set for user: $sAMAccountName"
+                                Write-Log "Property $property set for user: sAMAccountName=$sAMAccountName"
+                            } Catch {
+                                Write-Host "Warning: Failed to set property $property for user ${sAMAccountName}" -ForegroundColor Yellow
+                                Write-Log "Failed to set property $property for user: sAMAccountName=$sAMAccountName - $_"
+                            }
+                        }
+                    }
+
+                    if ($usr.UserPrincipalName -ne "") {
+                        # Convert UserPrincipalName to new suffix
+                        $upnParts = $usr.UserPrincipalName -split "@"
+                        $upnPrefix = $upnParts[0]
+                        if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
+                            $upnSuffix =  $NewUPNSuffix
+                        } else {
+                            $upnSuffix = $DNPath -replace '^(OU=[^,]+,)*', '' -replace 'DC=', '' -replace ',', '.'
+                        }
+                        $newUserPrincipalName = "${upnPrefix}@${upnSuffix}"
+
+                        try {
+                            Set-ADUser -Identity $sAMAccountName -UserPrincipalName $newUserPrincipalName
+                            Write-Host "  => UserPrincipalName set for user: $sAMAccountName"
+                            Write-Log "UserPrincipalName `"$newUserPrincipalName`" set for user: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Host "Warning: Failed to set UserPrincipalName for user ${sAMAccountName}" -ForegroundColor Yellow
+                            Write-Log "Failed to set UserPrincipalName `"$newUserPrincipalName`" for user: sAMAccountName=$sAMAccountName - $_"
+                        }
+                    }
+
+                    # Set password if the CSV provides Password
+                    if ($usr.PSObject.Properties.Name -contains "Password" -and $usr.Password -ne "") {
+                        try {
+                            $securePassword = ConvertTo-SecureString -String $usr.Password -AsPlainText -Force
+                            Set-ADAccountPassword -Identity $sAMAccountName -NewPassword $securePassword -Reset
+                            Write-Host "  => Password set for user: $sAMAccountName"
+                            Write-Log "Password set for user: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to set password for user ${sAMAccountName}: $_"
+                            Write-Log "Failed to set password for user: sAMAccountName=$sAMAccountName - $_"
+                        }
+                    }
+
+                    # Set "userAccountControl" property related special control bits
+                    try {
+                        $userFlags = [int]$usr.userAccountControl
+
+                        if ($userFlags -band 0x80000) {                  # MustChangePassword
+                            Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
+                            Write-Host "  => MustChangePassword applied: ${sAMAccountName}"
+                            Write-Log "MustChangePassword applied: sAMAccountName=${sAMAccountName}"
+                        }
+                        if ($userFlags -band 0x40) {                     # CannotChangePassword
+                            $user = Get-ADUser -Identity $sAMAccountName
+                            Set-ACL -Path "AD:\$($user.DistinguishedName)" -AclObject (Get-ACL -Path "AD:\$($user.DistinguishedName)" | ForEach-Object { $usr.Access | Where-Object { $usr.ObjectType -eq [Guid]::Parse("4c164200-20c0-11d0-a768-00aa006e0529") -and $usr.ActiveDirectoryRights -eq "ExtendedRight" -and $usr.AccessControlType -eq "Deny" } })
+                            Write-Host "  => CannotChangePassword applied: ${sAMAccountName}"
+                            Write-Log "CannotChangePassword applied: sAMAccountName=${sAMAccountName}"
+                        }
+                        if ($userFlags -band 0x10000) {                  # PasswordNeverExpires
+                            Set-ADUser -Identity $sAMAccountName -PasswordNeverExpires $true
+                            Write-Host "  => PasswordNeverExpires applied: ${sAMAccountName}"
+                            Write-Log "PasswordNeverExpires applied: sAMAccountName=${sAMAccountName}"
+                        }
+
+                        # Enable or disable the account only if the password is set
+                        if ($userFlags -band 2) {
+                            Disable-ADAccount -Identity $sAMAccountName
+                            Write-Host "  => Account disabled: ${sAMAccountName}"
+                            Write-Log "Account disabled: sAMAccountName=${sAMAccountName}"
+                        } else {
+                            if ($usr.PSObject.Properties.Name -contains "Password" -and $usr.Password -ne "") {
+                                Enable-ADAccount -Identity $sAMAccountName
+                                Write-Host "  => Account enabled: ${sAMAccountName}"
+                                Write-Log "Account enabled: sAMAccountName=${sAMAccountName}"
+                            } else {
+                                Write-Host "Warning: Cannot enable account ${sAMAccountName} as no password is set" -ForegroundColor Yellow
+                                Write-Log "Cannot enable account ${sAMAccountName} as no password is set"
+                            }
+                        }
+                    } catch {
+                        Write-Error "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
+                        Write-Log "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
+                    }
+
+                    # Add this user to groups
+                    $memberOfGroups = $usr.MemberOf -split ';'
+                    foreach ($mgrp in $memberOfGroups) {
+                        if ($mgrp -ne "") {
+                            try {
+                                $newDN = Get-NewDN -originalDN $mgrp -DNPath $DNPath
+
+                                Add-ADGroupMember -Identity $newDN -Members $($createdUser.DistinguishedName)
+                                Write-Host "Added user $sAMAccountName to group: $newDN"
+                                Write-Log "User: sAMAccountName=$sAMAccountName added to group: $newDN"
+                            } catch {
+                                Write-Host "Failed to add user $sAMAccountName to group $newDN. Error: $_" -ForegroundColor Red
+                                Write-Log "Failed to add user sAMAccountName=$sAMAccountName to group: $newDN - $_"
+                            }
+                        }
+                    }
+                } else {
+                    Write-Host "User $sAMAccountName already exists; skipping import"
+                    Write-Log "User Skipped (Already Exists): sAMAccountName=$sAMAccountName"
                 }
+            }
 
         } elseif ($objectClass -eq "group") {
             $excludedGroups = @("DnsAdmins", "DnsUpdateProxy", "HelpServicesGroup", "TelnetClients", "WINS Users",
@@ -698,6 +733,9 @@ process {
                             }
                         }
                       } | Sort-Object { $_.MemberOf.Length }
+
+            # Ensure this records are of AD Groups
+            Test-ObjectClassColumn -CsvRows $groups -ExpectClass 'group' -NoClassCheck:$NoClassCheck
 
             foreach ($grp in $groups) {
                 $objectProps = $grp
