@@ -657,10 +657,10 @@ process {
 
                         # Add this user to groups
                         $memberOfGroups = $_.MemberOf -split ';'
-                        foreach ($group in $memberOfGroups) {
-                            if ($group -ne "") {
+                        foreach ($mgrp in $memberOfGroups) {
+                            if ($mgrp -ne "") {
                                 try {
-                                    $newDN = Get-NewDN -originalDN $group -DNPath $DNPath
+                                    $newDN = Get-NewDN -originalDN $mgrp -DNPath $DNPath
 
                                     Add-ADGroupMember -Identity $newDN -Members $($createdUser.DistinguishedName)
                                     Write-Host "Added user $sAMAccountName to group: $newDN"
@@ -699,9 +699,9 @@ process {
                         }
                       } | Sort-Object { $_.MemberOf.Length }
 
-            foreach ($group in $groups) {
-                $objectProps = $group
-                $sAMAccountName = $group.sAMAccountName
+            foreach ($grp in $groups) {
+                $objectProps = $grp
+                $sAMAccountName = $grp.sAMAccountName
 
                 # Check existence of the group
                 $groupExists = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
@@ -711,13 +711,13 @@ process {
                     Write-Host "Processing group sAMAccountName=`"$sAMAccountName`""
                     Write-Log "Processing group sAMAccountName=`"$sAMAccountName`""
 
-                    $ouPath = ConvertDNBase -oldDN $group.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
-                    $NewManagedBy = Get-NewDN -originalDN $group.ManagedBy -DNPath $DNPath
+                    $ouPath = ConvertDNBase -oldDN $grp.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
+                    $NewManagedBy = Get-NewDN -originalDN $grp.ManagedBy -DNPath $DNPath
 
                     $newGroupParams = @{
-                        Name           = $group.Name    # or $group.CN
+                        Name           = $grp.Name    # or $grp.CN
                         SamAccountName = $sAMAccountName
-                        Description    = $group.Description
+                        Description    = $grp.Description
                         # ManagedBy    = $NewManagedBy   # produces error when DN missing on new AD
                         GroupCategory  = "Security" # modified later if necessary
                         GroupScope     = "Global"   # modified later if necessary
@@ -725,18 +725,18 @@ process {
                     }
 
                     # Determine GroupCategory based on CSV values
-                    if ($group.groupType -band 0x80000000) {
+                    if ($grp.groupType -band 0x80000000) {
                         $newGroupParams.GroupCategory = "Security"
                     } else {
                         $newGroupParams.GroupCategory = "Distribution"
                     }
 
                     # Determine GroupScope based on CSV values
-                    if ($group.groupType -band 0x2) {
+                    if ($grp.groupType -band 0x2) {
                         $newGroupParams.GroupScope = "Global"
-                    } elseif ($group.groupType -band 0x4) {
+                    } elseif ($grp.groupType -band 0x4) {
                         $newGroupParams.GroupScope = "DomainLocal"
-                    } elseif ($group.groupType -band 0x8) {
+                    } elseif ($grp.groupType -band 0x8) {
                         $newGroupParams.GroupScope = "Universal"
                     }
 
@@ -760,7 +760,7 @@ process {
                     }
 
                     # Add this group to parent groups
-                    $memberOfGroups = $group.MemberOf -split ';'
+                    $memberOfGroups = $grp.MemberOf -split ';'
                     foreach ($parentGroup in $memberOfGroups) {
                         if ($parentGroup -ne "") {
                             try {
@@ -829,7 +829,7 @@ process {
     }
 
     # Group data import
-    if ($Group -or $GroupFile) {
+    if ($Group) {
         # Select the group file if not specified
         if (-not $GroupFile) {
             $GroupFile = Select-Input-File -type "group"
@@ -844,7 +844,7 @@ process {
     }
 
     # User data import
-    if ($User -or $UserFile) {
+    if ($User) {
         # Select the user file if not specified
         if (-not $UserFile) {
             $UserFile = Select-Input-File -type "user"
