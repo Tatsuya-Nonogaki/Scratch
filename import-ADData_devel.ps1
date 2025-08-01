@@ -46,6 +46,19 @@
   (Alias -gf) Path to group CSV file. If omitted with -Group, a file selection 
   dialog prompts you.
 
+ .PARAMETER FixGroup
+  Optional. Operates in a post-import fixup mode for existing groups (distinct from 
+  -User and -Group import modes). 
+  Currently, this mode registers the ManagedBy attribute for groups using the 
+  specified GroupFile. This must be run after users and groups have already been 
+  imported, since ManagedBy references are typically user accounts.
+  Mutually exclusive with -User, -UserFile, and -Group. Requires -GroupFile (or 
+  prompts if omitted).
+  Use the same advanced options (-TrimOU, -NoUsersContainer, -NoForceUsersContainer) 
+  as in your previous imports.
+  This mode does not create or remove any groups or users; it only updates ManagedBy 
+  for existing groups.
+
  .PARAMETER NoClassCheck
   By default, this script automatically checks that all records in the input file 
   have an 'ObjectClass' matching the selected import mode (user or group), before 
@@ -873,8 +886,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
               # Write-Log "debug :: Fixup-GroupManagedBy : Group '$sAMAccountName' has no ManagedBy set in source; skipping"
                 continue
             }
-            Write-Host "Processing user sAMAccountName=`"$sAMAccountName`""
-            Write-Log  "Processing user sAMAccountName=`"$sAMAccountName`""
+            Write-Host "Processing group sAMAccountName=`"$sAMAccountName`""
+            Write-Log  "Processing group sAMAccountName=`"$sAMAccountName`""
 
             # Locate the group in AD
             $targetGroup = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
