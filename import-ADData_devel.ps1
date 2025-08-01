@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.5-a
+  Version: 0.9.5-b
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -856,6 +856,74 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
     }
 
+    # Register ManagedBy property for Groups
+    function Fixup-GroupManagedBy {
+        param(
+            [string]$GroupFile,
+            [string]$DNPath
+        )
+
+        $groups = Import-Csv -Path $GroupFile
+
+        foreach ($grp in $groups) {
+            $sAMAccountName = $grp.sAMAccountName
+            $managedByOrig  = $grp.ManagedBy
+
+            if (-not $managedByOrig -or $managedByOrig.Trim() -eq "") {
+              # Write-Log "debug :: Fixup-GroupManagedBy : Group '$sAMAccountName' has no ManagedBy set in source; skipping"
+                continue
+            }
+            Write-Host "Processing user sAMAccountName=`"$sAMAccountName`""
+            Write-Log  "Processing user sAMAccountName=`"$sAMAccountName`""
+
+            # Locate the group in AD
+            $targetGroup = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
+            if (-not $targetGroup) {
+                Write-Host "Group '$sAMAccountName' does not exist; skipping" -ForegroundColor Yellow
+                Write-Log  "Group skipped (Not Exist): sAMAccountName=$sAMAccountName"
+                continue
+            }
+
+            $newManagedBy = Get-NewDN -originalDN $managedByOrig -DNPath $DNPath
+            if (-not $newManagedBy) {
+                Write-Host "ManagedBy DN could not be resolved for $sAMAccountName; skipping" -ForegroundColor Yellow
+                Write-Log  "ManagedBy DN could not be resolved: sAMAccountName=$sAMAccountName"
+                continue
+            }
+
+            # Try to resolve as user, then group
+            $managedByObject = Get-ADUser -Identity $newManagedBy -ErrorAction SilentlyContinue
+            $managedByType = "user"
+            if (-not $managedByObject) {
+                $managedByObject = Get-ADGroup -Identity $newManagedBy -ErrorAction SilentlyContinue
+                $managedByType = "group"
+            }
+
+            if (-not $managedByObject) {
+                $msg = "Reference held by 'ManagedBy' property of group '$sAMAccountName' does not exist or is unexpected object type (Contact?)"
+                Write-Host $msg -ForegroundColor Yellow
+                Write-Log "${msg}: Source DN='$managedByOrig', Target DN='$newManagedBy'"
+                continue
+            }
+
+            # Only set if needed
+            if ($targetGroup.ManagedBy -eq $newManagedBy) {
+                Write-Host "Group '$sAMAccountName': ManagedBy already set to correct DN"
+                Write-Log "Group '$sAMAccountName': ManagedBy already set to correct DN='$newManagedBy'"
+                continue
+            }
+
+            Try {
+                Set-ADGroup -Identity $targetGroup.DistinguishedName -ManagedBy $newManagedBy
+                Write-Host "Set ManagedBy for $sAMAccountName -> $newManagedBy"
+                Write-Log  "Set ManagedBy for sAMAccountName=$sAMAccountName -> $newManagedBy ($managedByType)"
+            } Catch {
+                Write-Host "Failed to set ManagedBy for ${sAMAccountName}: $_" -ForegroundColor Red
+                Write-Log  "Failed to set ManagedBy for sAMAccountName=${sAMAccountName}: $_"
+            }
+        }
+    }
+
     #
     ## Main
     #
@@ -901,8 +969,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
         Write-Log $upnMsg
     }
 
-    # Group data import
-    if ($Group) {
+    # Group Data Import Mode
+    if ($groupMode) {
         # Select the group file if not specified
         if (-not $GroupFile) {
             $GroupFile = Select-Input-File -type "group"
@@ -928,8 +996,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
         Import-ADObject -filePath $GroupFile -objectClass "group"
     }
 
-    # User data import
-    if ($User) {
+    # User Data Import Mode
+    if ($userMode) {
         # Select the user file if not specified
         if (-not $UserFile) {
             $UserFile = Select-Input-File -type "user"
@@ -953,6 +1021,33 @@ Review your CSV. To override this check, use -NoClassCheck.)
         Write-Host "User File Path: $UserFile"
         Write-Log "User File Path: $UserFile"
         Import-ADObject -filePath $UserFile -objectClass "user"
+    }
+
+    # Group Fixup/Fixate Mode
+    if ($fixGroupMode) {
+        # Select the group file if not specified
+        if (-not $GroupFile) {
+            $GroupFile = Select-Input-File -type "group"
+        }
+        if (-not (Test-Path $GroupFile)) {
+            Write-Error "Specified GroupFile does not exist"
+            exit 1
+        }
+
+        # Warn if looks like a user file
+        $groupFileName = Split-Path $GroupFile -Leaf
+        if ($groupFileName -match '(?i)(^|[._ -])user([._ -]|s|$)') {
+            Write-Host "Warning: The group file name implies it is a user data file." -ForegroundColor Yellow
+            $resp = Read-Host "Continue anyway? [Y]/N"
+            if ($resp -and $resp -match '^(n|no)$') {
+                Write-Host "Aborted by user." -ForegroundColor Yellow
+                exit 1
+            }
+        }
+
+        Write-Host "Group File Path: $GroupFile"
+        Write-Log "Group File Path: $GroupFile"
+        Fixup-GroupManagedBy -GroupFile $GroupFile -DNPath $DNPath
     }
 
 # End of process
