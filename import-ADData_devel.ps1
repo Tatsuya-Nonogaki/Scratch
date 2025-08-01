@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.5-b
+  Version: 0.9.5-c
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -29,7 +29,7 @@
   components (default: 2).
 
  .PARAMETER User
-  (Alias -u) Operates in user import mode. Implied if -UserFile is specified.
+  (Alias -u) Operates in user import mode. Can be omitted if -UserFile is specified.
 
  .PARAMETER UserFile
   (Alias -uf) Path to user CSV file. 
@@ -40,7 +40,7 @@
   is required to restore the "Enabled" flag of the account.
 
  .PARAMETER Group
-  (Alias -g) Operates in group import mode. Implied if -GroupFile is specified.
+  (Alias -g) Operates in group import mode. Can be omitted if -GroupFile is specified.
 
  .PARAMETER GroupFile
   (Alias -gf) Path to group CSV file. If omitted with -Group, a file selection 
@@ -216,14 +216,12 @@ begin {
             Write-Host "Error: -UserFile was specified but is blank or whitespace." -ForegroundColor Red
             exit 2
         }
-        $User = $true
     }
     if ($PSBoundParameters.ContainsKey('GroupFile')) {
         if (-not $GroupFile -or $GroupFile.Trim() -eq "") {
             Write-Host "Error: -GroupFile was specified but is blank or whitespace." -ForegroundColor Red
             exit 2
         }
-        $Group = $true
     }
 
     $userMode = $false
@@ -240,7 +238,7 @@ begin {
             exit 2
         }
         if ($Group) {
-            Write-Host "Error: -FixGroup cannot be combined with -Group. With -GroupFile is acceptable." -ForegroundColor Red
+            Write-Host "Error: -FixGroup cannot be combined with -Group. -GroupFile is acceptable." -ForegroundColor Red
             exit 2
         }
         $fixGroupMode = $true
@@ -798,13 +796,11 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     Write-Log "Processing group sAMAccountName=`"$sAMAccountName`""
 
                     $ouPath = ConvertDNBase -oldDN $grp.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
-                    $NewManagedBy = Get-NewDN -originalDN $grp.ManagedBy -DNPath $DNPath
 
                     $newGroupParams = @{
                         Name           = $grp.Name    # or $grp.CN
                         SamAccountName = $sAMAccountName
                         Description    = $grp.Description
-                        # ManagedBy    = $NewManagedBy   # produces error when DN missing on new AD
                         GroupCategory  = "Security" # modified later if necessary
                         GroupScope     = "Global"   # modified later if necessary
                         # Define other properties here if needed
@@ -890,7 +886,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
             Write-Log  "Processing group sAMAccountName=`"$sAMAccountName`""
 
             # Locate the group in AD
-            $targetGroup = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
+            $targetGroup = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -Properties ManagedBy -ErrorAction SilentlyContinue
             if (-not $targetGroup) {
                 Write-Host "Group '$sAMAccountName' does not exist; skipping" -ForegroundColor Yellow
                 Write-Log  "Group skipped (Not Exist): sAMAccountName=$sAMAccountName"
@@ -919,10 +915,11 @@ Review your CSV. To override this check, use -NoClassCheck.)
                 continue
             }
 
-            # Only set if needed
+            # Skip if the same DN is already set
+          # Write-Log "debug :: Fixup-GroupManagedBy : targetGroup.ManagedBy: $($targetGroup.ManagedBy)"
             if ($targetGroup.ManagedBy -eq $newManagedBy) {
-                Write-Host "Group '$sAMAccountName': ManagedBy already set to correct DN"
-                Write-Log "Group '$sAMAccountName': ManagedBy already set to correct DN='$newManagedBy'"
+                Write-Host "Group '$sAMAccountName': ManagedBy already set to correct DN, skipping"
+                Write-Log "Group '$sAMAccountName': ManagedBy already set to correct DN: '$newManagedBy', skipping"
                 continue
             }
 
