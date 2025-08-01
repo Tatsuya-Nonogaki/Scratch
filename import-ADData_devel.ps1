@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.5
+  Version: 0.9.5-a
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -131,6 +131,9 @@ param(
     [switch]$Group,
 
     [Parameter()]
+    [switch]$FixGroup,
+
+    [Parameter()]
     [switch]$NoClassCheck,
 
     [Parameter()]
@@ -194,23 +197,54 @@ begin {
         throw "Error: -DNPath cannot be used together with -DNPrefix or -DCDepth."
     }
 
-    # User and Group related parameter checks
-    if ($PSBoundParameters.ContainsKey('UserFile')) { $User = $true }
-    if ($PSBoundParameters.ContainsKey('GroupFile')) { $Group = $true }
-
-    if (-not ($User -or $Group)) {
-        throw "Error: At least one of -User, -UserFile, -Group, or -GroupFile must be specified."
+    # Main mode parameters and mutual exclution checks
+    if ($PSBoundParameters.ContainsKey('UserFile')) {
+        if (-not $UserFile -or $UserFile.Trim() -eq "") {
+            Write-Host "Error: -UserFile was specified but is blank or whitespace." -ForegroundColor Red
+            exit 2
+        }
+        $User = $true
+    }
+    if ($PSBoundParameters.ContainsKey('GroupFile')) {
+        if (-not $GroupFile -or $GroupFile.Trim() -eq "") {
+            Write-Host "Error: -GroupFile was specified but is blank or whitespace." -ForegroundColor Red
+            exit 2
+        }
+        $Group = $true
     }
 
-    if ($User -and $Group) {
-        throw "Error: You cannot specify both User mode (-User and/or -UserFile) and Group mode (-Group and/or -GroupFile) at the same time. Please specify only one."
-    }
+    $userMode = $false
+    $groupMode = $false
+    $fixGroupMode = $false
 
-    if ($User -and $PSBoundParameters.ContainsKey('GroupFile')) {
-        throw "Error: Option mismatch: -GroupFile cannot be used with User mode (-User or -UserFile)."
+    $wantUser = $User -or $PSBoundParameters.ContainsKey('UserFile')
+    $wantGroup = $Group -or $PSBoundParameters.ContainsKey('GroupFile')
+    $wantFixGroup = $FixGroup
+
+    if ($wantFixGroup) {
+        if ($wantUser) {
+            Write-Host "Error: -FixGroup cannot be combined with -User or -UserFile." -ForegroundColor Red
+            exit 2
+        }
+        if ($Group) {
+            Write-Host "Error: -FixGroup cannot be combined with -Group. With -GroupFile is acceptable." -ForegroundColor Red
+            exit 2
+        }
+        $fixGroupMode = $true
     }
-    if ($Group -and $PSBoundParameters.ContainsKey('UserFile')) {
-        throw "Error: Option mismatch: -UserFile cannot be used with Group mode (-Group or -GroupFile)."
+    elseif ($wantUser -and $wantGroup) {
+        Write-Host "Error: Specify only one of User mode (-User, -UserFile) or Group mode (-Group, -GroupFile)." -ForegroundColor Red
+        exit 2
+    }
+    elseif ($wantUser) {
+        $userMode = $true
+    }
+    elseif ($wantGroup) {
+        $groupMode = $true
+    }
+    else {
+        Write-Host "Error: At least one of -User and/or -UserFile, -Group and/or -GroupFile, or -FixGroup must be specified." -ForegroundColor Red
+        exit 2
     }
 
     # UPN suffix sanity check
@@ -661,8 +695,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
                             Write-Log "MustChangePassword applied: sAMAccountName=${sAMAccountName}"
                         }
                         if ($userFlags -band 0x40) {                     # CannotChangePassword
-                            $user = Get-ADUser -Identity $sAMAccountName
-                            Set-ACL -Path "AD:\$($user.DistinguishedName)" -AclObject (Get-ACL -Path "AD:\$($user.DistinguishedName)" | ForEach-Object { $usr.Access | Where-Object { $usr.ObjectType -eq [Guid]::Parse("4c164200-20c0-11d0-a768-00aa006e0529") -and $usr.ActiveDirectoryRights -eq "ExtendedRight" -and $usr.AccessControlType -eq "Deny" } })
+                            $acuser = Get-ADUser -Identity $sAMAccountName
+                            Set-ACL -Path "AD:\$($acuser.DistinguishedName)" -AclObject (Get-ACL -Path "AD:\$($acuser.DistinguishedName)" | ForEach-Object { $usr.Access | Where-Object { $usr.ObjectType -eq [Guid]::Parse("4c164200-20c0-11d0-a768-00aa006e0529") -and $usr.ActiveDirectoryRights -eq "ExtendedRight" -and $usr.AccessControlType -eq "Deny" } })
                             Write-Host "  => CannotChangePassword applied: ${sAMAccountName}"
                             Write-Log "CannotChangePassword applied: sAMAccountName=${sAMAccountName}"
                         }
