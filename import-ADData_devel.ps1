@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.5-c
+  Version: 0.9.6
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -117,6 +117,13 @@
   # then -TrimOU "deeper,sales" will result in:
   #   CN=foo,DC=domain,DC=local
   .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
+
+ .EXAMPLE
+  # Register ManagedBy property for Groups after importing Groups and Users.
+  .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -GroupFile ".\Groups_olddomain_local.csv"
+  .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -UserFile ".\Users_olddomain_local.csv"
+  .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -FixGroup -GroupFile ".\Groups_olddomain_local.csv"
+  # You must use exactly the same advanced options (if applicable: -TrimOU, -NoUsersContainer, -NoForceUsersContainer) for all runs in this sequence to avoid DN path translation mismatches.
 #>
 [CmdletBinding()]
 param(
