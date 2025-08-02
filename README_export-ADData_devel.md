@@ -80,7 +80,8 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 
 #### Key Features
 
-- Import AD Users and Groups from CSV files.
+- Import AD Users and Groups from CSV files (`-User` and `-Group` mode).
+- Register ManagedBy attribute for Groups separately in a dedicated run (`-FixGroup` mode).
 - Optionally include system objects.
 - Handle objects in `CN=Users` container specially and appropriately, redirecting them to a designated OU when needed.
 - Create missing intermediate OUs during the import.
