@@ -2,7 +2,7 @@
 
 ## Password and userAccountControl related Handling Matrix
 
-### ChangePasswordAtLogon
+### ChangePasswordAtLogon  
 
 | Password Set     | ChangePasswordAtLogon (column/flag) | userAccountControl 0x80000  | Action                            | Notes                     |
 |------------------|-------------------------------------|-----------------------------|-----------------------------------|---------------------------|
@@ -16,7 +16,7 @@
 
 ---
 
-## **Summary**
+## **Summary**  
 
 - You should **not** make the `Password` column mandatory for all users.
 - Only set `ChangePasswordAtLogon` if a password is present.
