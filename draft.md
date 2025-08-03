@@ -2,6 +2,8 @@
 
 ## Password and userAccountControl related Handling Matrix
 
+### ChangePasswordAtLogon
+
 | Password Set     | ChangePasswordAtLogon (column/flag) | userAccountControl 0x80000  | Action                            | Notes                     |
 |------------------|-------------------------------------|-----------------------------|-----------------------------------|---------------------------|
 | Yes              | TRUE/positive                       | don't care                  | Set -ChangePasswordAtLogon $true  | Works as intended         |
@@ -12,10 +14,6 @@
 | No               | blank/missing                       | Set                         | Do not set                        | Warn                      |
 | No               | blank/missing                       | Not Set                     | Do not set                        | Silently ignore           |
 
-
-
----
-
 ---
 
 ## **Summary**
@@ -25,4 +23,3 @@
 - This avoids error storms and keeps the CSV format flexible for both enabled and disabled accounts.
 
 ---
-
