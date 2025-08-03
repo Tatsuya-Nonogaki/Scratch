@@ -707,10 +707,10 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     try {
                         $userFlags = [int]$usr.userAccountControl
 
-                        if ($userFlags -band 0x80000) {                  # MustChangePassword
+                        if ($userFlags -band 0x80000) {                  # ChangePasswordAtLogon
                             Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
-                            Write-Host "  => MustChangePassword applied: ${sAMAccountName}"
-                            Write-Log "MustChangePassword applied: sAMAccountName=${sAMAccountName}"
+                            Write-Host "  => ChangePasswordAtLogon applied: ${sAMAccountName}"
+                            Write-Log "ChangePasswordAtLogon applied: sAMAccountName=${sAMAccountName}"
                         }
                         if ($userFlags -band 0x40) {                     # CannotChangePassword
                             $acuser = Get-ADUser -Identity $sAMAccountName
