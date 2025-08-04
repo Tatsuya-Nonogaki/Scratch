@@ -1,5 +1,3 @@
----
-
 ## Password and userAccountControl related Handling Matrix
 
 ### ChangePasswordAtLogon  
