@@ -691,12 +691,12 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     }
 
                     # Set password if the CSV provides Password
-                    $passwordSet = $false    #0.9.6-a
+                    $passwordSet = $false    #Added 0.9.6-a
                     if ($usr.PSObject.Properties.Name -contains "Password" -and $usr.Password -ne "") {
                         try {
                             $securePassword = ConvertTo-SecureString -String $usr.Password -AsPlainText -Force
                             Set-ADAccountPassword -Identity $sAMAccountName -NewPassword $securePassword -Reset
-                            $passwordSet = $true    #0.9.6-a
+                            $passwordSet = $true    #Added 0.9.6-a
                             Write-Host "  => Password set for user: $sAMAccountName"
                             Write-Log "Password set for user: sAMAccountName=$sAMAccountName"
                         } catch {
@@ -710,11 +710,11 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         $userFlags = [int]$usr.userAccountControl
 
                         if ($userFlags -band 0x80000) {                  # ChangePasswordAtLogon
-                            if ($passwordSet) {    #0.9.6-a
+                            if ($passwordSet) {    #Modified 0.9.6-a
                                 Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
                                 Write-Host "  => ChangePasswordAtLogon applied: ${sAMAccountName}"
                                 Write-Log "ChangePasswordAtLogon applied: sAMAccountName=${sAMAccountName}"
-                            } else {    #0.9.6-a
+                            } else {    #Modified 0.9.6-a
                                 Write-Host "Warning: Cannot set ChangePasswordAtLogon for account ${sAMAccountName} as no password is set" -ForegroundColor Yellow
                                 Write-Log "Cannot set ChangePasswordAtLogon for account ${sAMAccountName} as no password is set"
                             }
@@ -737,7 +737,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                             Write-Host "  => Account disabled: ${sAMAccountName}"
                             Write-Log "Account disabled: sAMAccountName=${sAMAccountName}"
                         } else {
-                            if ($passwordSet) {    #0.9.6-a
+                            if ($passwordSet) {    #Modified 0.9.6-a
                                 Enable-ADAccount -Identity $sAMAccountName
                                 Write-Host "  => Account enabled: ${sAMAccountName}"
                                 Write-Log "Account enabled: sAMAccountName=${sAMAccountName}"
