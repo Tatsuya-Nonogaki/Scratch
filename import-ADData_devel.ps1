@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.6-a
+  Version: 0.9.6-b
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -691,12 +691,12 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     }
 
                     # Set password if the CSV provides Password
-                    $passwordSet = $false    #Added 0.9.6-a
+                    $IsPasswordSet = $false
                     if ($usr.PSObject.Properties.Name -contains "Password" -and $usr.Password -ne "") {
                         try {
                             $securePassword = ConvertTo-SecureString -String $usr.Password -AsPlainText -Force
                             Set-ADAccountPassword -Identity $sAMAccountName -NewPassword $securePassword -Reset
-                            $passwordSet = $true    #Added 0.9.6-a
+                            $IsPasswordSet = $true
                             Write-Host "  => Password set for user: $sAMAccountName"
                             Write-Log "Password set for user: sAMAccountName=$sAMAccountName"
                         } catch {
@@ -705,50 +705,75 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         }
                     }
 
-                    # Set "userAccountControl" property related special control bits
-                    try {
-                        $userFlags = [int]$usr.userAccountControl
+                    # Set "userAccountControl" property related special control bits - Enabling account and set ChangePasswordAtLogon=True require a successfully set password
+                    $userFlags = [int]$usr.userAccountControl
 
-                        if ($userFlags -band 0x80000) {                  # ChangePasswordAtLogon
-                            if ($passwordSet) {    #Modified 0.9.6-a
+                    # ChangePasswordAtLogon
+                    if ($userFlags -band 0x80000) {
+                        if ($IsPasswordSet) {
+                            try {
                                 Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
-                                Write-Host "  => ChangePasswordAtLogon applied: ${sAMAccountName}"
-                                Write-Log "ChangePasswordAtLogon applied: sAMAccountName=${sAMAccountName}"
-                            } else {    #Modified 0.9.6-a
-                                Write-Host "Warning: Cannot set ChangePasswordAtLogon for account ${sAMAccountName} as no password is set" -ForegroundColor Yellow
-                                Write-Log "Cannot set ChangePasswordAtLogon for account ${sAMAccountName} as no password is set"
+                                Write-Host "  => ChangePasswordAtLogon applied: $sAMAccountName"
+                                Write-Log "ChangePasswordAtLogon applied: sAMAccountName=$sAMAccountName"
+                            } catch {
+                                Write-Error "Failed to set ChangePasswordAtLogon for user ${sAMAccountName}: $_"
+                                Write-Log "Failed to set ChangePasswordAtLogon for user: sAMAccountName=$sAMAccountName - $_"
                             }
+                        } else {
+                            Write-Host "Warning: Cannot set ChangePasswordAtLogon for account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                            Write-Log "Cannot set ChangePasswordAtLogon for account $sAMAccountName as no password is set"
                         }
-                        if ($userFlags -band 0x40) {                     # CannotChangePassword
+                    }
+
+                    # CannotChangePassword
+                    if ($userFlags -band 0x40) {
+                        try {
                             $acuser = Get-ADUser -Identity $sAMAccountName
                             Set-ACL -Path "AD:\$($acuser.DistinguishedName)" -AclObject (Get-ACL -Path "AD:\$($acuser.DistinguishedName)" | ForEach-Object { $usr.Access | Where-Object { $usr.ObjectType -eq [Guid]::Parse("4c164200-20c0-11d0-a768-00aa006e0529") -and $usr.ActiveDirectoryRights -eq "ExtendedRight" -and $usr.AccessControlType -eq "Deny" } })
-                            Write-Host "  => CannotChangePassword applied: ${sAMAccountName}"
-                            Write-Log "CannotChangePassword applied: sAMAccountName=${sAMAccountName}"
+                            Write-Host "  => CannotChangePassword applied: $sAMAccountName"
+                            Write-Log "CannotChangePassword applied: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to process CannotChangePassword for user ${sAMAccountName}: $_"
+                            Write-Log "Failed to process CannotChangePassword for user: sAMAccountName=$sAMAccountName - $_"
                         }
-                        if ($userFlags -band 0x10000) {                  # PasswordNeverExpires
-                            Set-ADUser -Identity $sAMAccountName -PasswordNeverExpires $true
-                            Write-Host "  => PasswordNeverExpires applied: ${sAMAccountName}"
-                            Write-Log "PasswordNeverExpires applied: sAMAccountName=${sAMAccountName}"
-                        }
+                    }
 
-                        # Enable or disable the account only if the password is set
-                        if ($userFlags -band 2) {
-                            Disable-ADAccount -Identity $sAMAccountName
-                            Write-Host "  => Account disabled: ${sAMAccountName}"
-                            Write-Log "Account disabled: sAMAccountName=${sAMAccountName}"
-                        } else {
-                            if ($passwordSet) {    #Modified 0.9.6-a
-                                Enable-ADAccount -Identity $sAMAccountName
-                                Write-Host "  => Account enabled: ${sAMAccountName}"
-                                Write-Log "Account enabled: sAMAccountName=${sAMAccountName}"
-                            } else {
-                                Write-Host "Warning: Cannot enable account ${sAMAccountName} as no password is set" -ForegroundColor Yellow
-                                Write-Log "Cannot enable account ${sAMAccountName} as no password is set"
-                            }
+                    # PasswordNeverExpires
+                    if ($userFlags -band 0x10000) {
+                        try {
+                            Set-ADUser -Identity $sAMAccountName -PasswordNeverExpires $true
+                            Write-Host "  => PasswordNeverExpires applied: $sAMAccountName"
+                            Write-Log "PasswordNeverExpires applied: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to set PasswordNeverExpires for user ${sAMAccountName}: $_"
+                            Write-Log "Failed to set PasswordNeverExpires for user: sAMAccountName=$sAMAccountName - $_"
                         }
-                    } catch {
-                        Write-Error "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
-                        Write-Log "Failed to set userAccountControl flags for user ${sAMAccountName}: $_"
+                    }
+
+                    # Enable or disable the account only if the password is set
+                    if ($userFlags -band 2) {
+                        try {
+                            Disable-ADAccount -Identity $sAMAccountName
+                            Write-Host "  => Account disabled: $sAMAccountName"
+                            Write-Log "Account disabled: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to disable account ${sAMAccountName}: $_"
+                            Write-Log "Failed to disable account: sAMAccountName=$sAMAccountName - $_"
+                        }
+                    } else {
+                        if ($IsPasswordSet) {
+                            try {
+                                Enable-ADAccount -Identity $sAMAccountName
+                                Write-Host "  => Account enabled: $sAMAccountName"
+                                Write-Log "Account enabled: sAMAccountName=$sAMAccountName"
+                            } catch {
+                                Write-Error "Failed to enable account $sAMAccountName: $_"
+                                Write-Log "Failed to enable account: sAMAccountName=$sAMAccountName - $_"
+                            }
+                        } else {
+                            Write-Host "Warning: Cannot enable account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                            Write-Log "Cannot enable account $sAMAccountName as no password is set"
+                        }
                     }
 
                     # Add this user to groups
@@ -767,7 +792,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
                             }
                         }
                     }
-                } else {
+                }
+                else {
                     Write-Host "User $sAMAccountName already exists; skipping import"
                     Write-Log "User Skipped (Already Exists): sAMAccountName=$sAMAccountName"
                 }
