@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.6-b
+  Version: 0.9.6-c
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -38,6 +38,12 @@
   Note: To register password to any users, make a copy of the whole CSV file, 
   add a "Password" column, and put password in plain text. Do note that Password 
   is required to restore the "Enabled" flag of the account.
+
+  Note: You may also add a "ChangePasswordAtLogon" column to the user CSV.
+  If specified, this column takes precedence over the userAccountControl bit for controlling the
+  "User must change password at next logon" setting. Acceptable values are TRUE, YES, or 1 (case-insensitive)
+  to enable, and FALSE, NO, or 0 to disable. When set to TRUE, a password must also be provided;
+  when set to FALSE, the flag will be cleared regardless of password state.
 
  .PARAMETER Group
   (Alias -g) Operates in group import mode. Can be omitted if -GroupFile is specified.
@@ -561,6 +567,15 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
     }
 
+    # Normalize CSV value positive/negative to $null, $true, or $false
+    function To-Bool($val) {
+        if ($null -eq $val) { return $null }
+        $str = $val.ToString().Trim().ToLower()
+        if ($str -eq "true" -or $str -eq "yes" -or $str -eq "1") { return $true }
+        if ($str -eq "false" -or $str -eq "no" -or $str -eq "0") { return $false }
+        return $null
+    }
+
     # Import AD objects from the CSV file
     function Import-ADObject {
         param (
@@ -708,21 +723,41 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     # Set "userAccountControl" property related special control bits - Enabling account and set ChangePasswordAtLogon=True require a successfully set password
                     $userFlags = [int]$usr.userAccountControl
 
-                    # ChangePasswordAtLogon
-                    if ($userFlags -band 0x80000) {
-                        if ($IsPasswordSet) {
+                    # ChangePasswordAtLogon from dedicated column in the CSV or bits in userAccountControl - Column takes precedence
+                    $changePwdColExists = $usr.PSObject.Properties.Name -contains "ChangePasswordAtLogon"
+                    $changePwdUserValue = if ($changePwdColExists) { To-Bool $usr.ChangePasswordAtLogon } else { $null }
+
+                    if ($changePwdColExists -and $changePwdUserValue -ne $null) {
+                        # Dedicated column is present in CSV and has value
+                        if ($changePwdUserValue -eq $true -and -not $IsPasswordSet) {
+                            Write-Host "Warning: Cannot set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                            Write-Log "Cannot set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set"
+                        } else {
                             try {
-                                Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
-                                Write-Host "  => ChangePasswordAtLogon applied: $sAMAccountName"
-                                Write-Log "ChangePasswordAtLogon applied: sAMAccountName=$sAMAccountName"
+                                Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $changePwdUserValue
+                                Write-Host "  => ChangePasswordAtLogon set to $changePwdUserValue for user: $sAMAccountName"
+                                Write-Log "ChangePasswordAtLogon set to $changePwdUserValue for user: sAMAccountName=$sAMAccountName"
                             } catch {
-                                Write-Error "Failed to set ChangePasswordAtLogon for user ${sAMAccountName}: $_"
+                                Write-Error "Failed to set ChangePasswordAtLogon for user $sAMAccountName: $_"
                                 Write-Log "Failed to set ChangePasswordAtLogon for user: sAMAccountName=$sAMAccountName - $_"
                             }
-                        } else {
-                            Write-Host "Warning: Cannot set ChangePasswordAtLogon for account $sAMAccountName as no password is set" -ForegroundColor Yellow
-                            Write-Log "Cannot set ChangePasswordAtLogon for account $sAMAccountName as no password is set"
                         }
+                    }
+                    elseif ($IsPasswordSet -and ($userFlags -band 0x80000)) {
+                        # Fallback: userAccountControl bit
+                        try {
+                            Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $true
+                            Write-Host "  => ChangePasswordAtLogon applied (userAccountControl) for user: $sAMAccountName"
+                            Write-Log "ChangePasswordAtLogon applied (userAccountControl) for user: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to set ChangePasswordAtLogon (userAccountControl) for user $sAMAccountName: $_"
+                            Write-Log "Failed to set ChangePasswordAtLogon (userAccountControl) for user: sAMAccountName=$sAMAccountName - $_"
+                        }
+                    }
+                    elseif (-not $IsPasswordSet -and ($userFlags -band 0x80000)) {
+                        # Bit is set, but password is not set
+                        Write-Host "Warning: Cannot set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                        Write-Log "Cannot set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set"
                     }
 
                     # CannotChangePassword
