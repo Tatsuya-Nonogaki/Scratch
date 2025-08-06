@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.6-d
+  Version: 0.9.6-e
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -736,8 +736,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     if ($changePwdColExists -and $changePwdUserValue -ne $null) {
                         # Dedicated column is present in CSV and has value
                         if ($changePwdUserValue -eq $true -and -not $IsPasswordSet) {
-                            Write-Host "Warning: Cannot set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
-                            Write-Log "Cannot set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set"
+                            Write-Host "Warning: Failed to set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                            Write-Log "Failed to set ChangePasswordAtLogon (column=TRUE) for account $sAMAccountName as no password is set"
                         } else {
                             try {
                                 Set-ADUser -Identity $sAMAccountName -ChangePasswordAtLogon $changePwdUserValue
@@ -762,8 +762,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     }
                     elseif (-not $IsPasswordSet -and ($userFlags -band 0x80000)) {
                         # Bit is set, but password is not set
-                        Write-Host "Warning: Cannot set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
-                        Write-Log "Cannot set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set"
+                        Write-Host "Warning: Failed to set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                        Write-Log "Failed to set ChangePasswordAtLogon (userAccountControl) for account $sAMAccountName as no password is set"
                     }
 
                     # CannotChangePassword
@@ -812,8 +812,8 @@ Review your CSV. To override this check, use -NoClassCheck.)
                                 Write-Log "Failed to enable account: sAMAccountName=$sAMAccountName - $_"
                             }
                         } else {
-                            Write-Host "Warning: Cannot enable account $sAMAccountName as no password is set" -ForegroundColor Yellow
-                            Write-Log "Cannot enable account $sAMAccountName as no password is set"
+                            Write-Host "Warning: Failed to enable account $sAMAccountName as no password is set" -ForegroundColor Yellow
+                            Write-Log "Failed to enable account $sAMAccountName as no password is set"
                         }
                     }
 
