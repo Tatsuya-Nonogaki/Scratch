@@ -197,7 +197,7 @@ You have two options to control the "User must change password at next logon" (`
   - If you set this column to a **positive value** (`TRUE`, `YES`, or `1`, case-insensitive), the flag will be explicitly set (user must change password at next logon).  
   - If set to a **negative value** (`FALSE`, `NO`, or `0`), the flag will be explicitly cleared.
   - **When setting this to POSITIVE VALUE a password is required in the `"Password"` column for that user.**
-  - When setting it to a negative value, the flag will be cleared regardless of whether a password is set.
+  - When setting it to a negative value, the flag will be cleared regardless of whether a password is set, as Active Directory does not prohibit this operation.
 
 - **Via userAccountControl bit (legacy/fallback):**  
   If the `"ChangePasswordAtLogon"` column is not present or is blank for a user, the script will honor the `0x80000` bit in the `userAccountControl` column, **if set**, provided a password is also present. If both the `0x80000` bit and the `"ChangePasswordAtLogon"` column are either absent or indicate a negative value, the script **does not clear** the "User must change password at next logon" flag; instead, the default password policy of the destination AD will apply.
