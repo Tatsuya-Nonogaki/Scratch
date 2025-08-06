@@ -122,7 +122,7 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 
 ##### Note about `-FixGroup` mode
 
-`-FixGroup` enables a special post-import operation to set the `ManagedBy` property on groups using a provided GroupFile. This is necessary because `ManagedBy` typically references user objects, which must already exist in the target AD. This mode does not create or remove any groups or users—it only updates the `ManagedBy` property for existing groups, mapping references according to the `-DNPath`, and advanced options (such as `-TrimOU`, `-NoUsersContainer`, etc.).
+`-FixGroup` enables a special post-import operation to set the `ManagedBy` property on groups, using the same GroupFile as in the import step. This is necessary because `ManagedBy` typically references user objects, which must already exist in the target AD. This mode does not create or remove any groups or users—it only updates the `ManagedBy` property for existing groups, mapping references according to the `-DNPath`, and advanced options (such as `-TrimOU`, `-NoUsersContainer`, etc.).
 
 - `-FixGroup` is mutually exclusive with user/group import modes.
 - Requires a valid `-GroupFile` (prompted if omitted).
