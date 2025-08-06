@@ -643,7 +643,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     $createdUser = Get-ADUser -Filter "SamAccountName -eq '$sAMAccountName'" -Properties DistinguishedName
                     if ($createdUser) {
                         Write-Host "User Created DistinguishedName=$($createdUser.DistinguishedName)"
-                        Write-Log "User Created: sAMAccountName=$sAMAccountName, DistinguishedName=$($createdUser.DistinguishedName)"
+                        Write-Log "User Created: sAMAccountName=${sAMAccountName}, DistinguishedName=$($createdUser.DistinguishedName)"
                     }
 
                     # Set additional properties using Set-ADUser
@@ -738,7 +738,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                                 Write-Host "  => ChangePasswordAtLogon set to $changePwdUserValue for user: $sAMAccountName"
                                 Write-Log "ChangePasswordAtLogon set to $changePwdUserValue for user: sAMAccountName=$sAMAccountName"
                             } catch {
-                                Write-Error "Failed to set ChangePasswordAtLogon for user $sAMAccountName: $_"
+                                Write-Error "Failed to set ChangePasswordAtLogon for user ${sAMAccountName}: $_"
                                 Write-Log "Failed to set ChangePasswordAtLogon for user: sAMAccountName=$sAMAccountName - $_"
                             }
                         }
@@ -750,7 +750,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                             Write-Host "  => ChangePasswordAtLogon applied (userAccountControl) for user: $sAMAccountName"
                             Write-Log "ChangePasswordAtLogon applied (userAccountControl) for user: sAMAccountName=$sAMAccountName"
                         } catch {
-                            Write-Error "Failed to set ChangePasswordAtLogon (userAccountControl) for user $sAMAccountName: $_"
+                            Write-Error "Failed to set ChangePasswordAtLogon (userAccountControl) for user ${sAMAccountName}: $_"
                             Write-Log "Failed to set ChangePasswordAtLogon (userAccountControl) for user: sAMAccountName=$sAMAccountName - $_"
                         }
                     }
@@ -802,7 +802,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                                 Write-Host "  => Account enabled: $sAMAccountName"
                                 Write-Log "Account enabled: sAMAccountName=$sAMAccountName"
                             } catch {
-                                Write-Error "Failed to enable account $sAMAccountName: $_"
+                                Write-Error "Failed to enable account ${sAMAccountName}: $_"
                                 Write-Log "Failed to enable account: sAMAccountName=$sAMAccountName - $_"
                             }
                         } else {
@@ -913,7 +913,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     $createdGroup = Get-ADGroup -Filter "SamAccountName -eq '$sAMAccountName'" -Properties DistinguishedName
                     if ($createdGroup) {
                         Write-Host "Group Created DistinguishedName=$($createdGroup.DistinguishedName)"
-                        Write-Log "Group Created: sAMAccountName=$sAMAccountName, DistinguishedName=$($createdGroup.DistinguishedName)"
+                        Write-Log "Group Created: sAMAccountName=${sAMAccountName}, DistinguishedName=$($createdGroup.DistinguishedName)"
                     }
 
                     # Add this group to parent groups
