@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.6-c
+  Version: 0.9.6-d
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -646,6 +646,10 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     if ($createdUser) {
                         Write-Host "User Created DistinguishedName=$($createdUser.DistinguishedName)"
                         Write-Log "User Created: sAMAccountName=${sAMAccountName}, DistinguishedName=$($createdUser.DistinguishedName)"
+                    } else {
+                        Write-Host "User creation failed for ${sAMAccountName}; skipping further property setting." -ForegroundColor Red
+                        Write-Log "User creation failed for sAMAccountName=${sAMAccountName}; skipping further property setting."
+                        continue
                     }
 
                     # Set additional properties using Set-ADUser
@@ -916,6 +920,10 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     if ($createdGroup) {
                         Write-Host "Group Created DistinguishedName=$($createdGroup.DistinguishedName)"
                         Write-Log "Group Created: sAMAccountName=${sAMAccountName}, DistinguishedName=$($createdGroup.DistinguishedName)"
+                    } else {
+                        Write-Host "Group creation failed for ${sAMAccountName}; skipping further property setting." -ForegroundColor Red
+                        Write-Log "Group creation failed for sAMAccountName=${sAMAccountName}; skipping further property setting."
+                        continue
                     }
 
                     # Add this group to parent groups
@@ -972,7 +980,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
 
             $newManagedBy = Get-NewDN -originalDN $managedByOrig -DNPath $DNPath
             if (-not $newManagedBy) {
-                Write-Host "ManagedBy DN could not be resolved for $sAMAccountName; skipping" -ForegroundColor Yellow
+                Write-Host "ManagedBy DN could not be resolved for ${sAMAccountName}; skipping" -ForegroundColor Yellow
                 Write-Log  "ManagedBy DN could not be resolved: sAMAccountName=$sAMAccountName"
                 continue
             }
