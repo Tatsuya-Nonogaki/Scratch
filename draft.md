@@ -2,22 +2,15 @@
 
 ### ChangePasswordAtLogon  
 
-| Password Set     | ChangePasswordAtLogon (column/flag) | userAccountControl 0x80000  | Action                            | Notes                     |
-|------------------|-------------------------------------|-----------------------------|-----------------------------------|---------------------------|
-| Yes              | TRUE/positive                       | don't care                  | Set -ChangePasswordAtLogon $true  | Works as intended         |
-| Yes              | FALSE/negative                      | don't care                  | Set -ChangePasswordAtLogon $false | Works as intended         |
-| Yes              | blank/missing                       | Set                         | Set -ChangePasswordAtLogon $true  | Works as intended         |
-| Yes              | blank/missing                       | Not set                     | Do not set                        | Silently ignore           |
-| No               | positive/negative                   | don't care                  | Do not set                        | Warn                      |
-| No               | blank/missing                       | Set                         | Do not set                        | Warn                      |
-| No               | blank/missing                       | Not Set                     | Do not set                        | Silently ignore           |
-
----
-
-## **Summary**  
-
-- You should **not** make the `Password` column mandatory for all users.
-- Only set `ChangePasswordAtLogon` if a password is present.
-- This avoids error storms and keeps the CSV format flexible for both enabled and disabled accounts.
+| Password Set     | ChangePasswordAtLogon (column) | userAccountControl 0x80000  | Action                            | Notes           |
+|------------------|--------------------------------|-----------------------------|-----------------------------------|-----------------|
+| Yes              | TRUE/positive                  | don't care                  | Set-ADUser -ChangePasswordAtLogon $true  |                 |
+| Yes              | FALSE/negative                 | don't care                  | Set-ADUser -ChangePasswordAtLogon $false |                 |
+| Yes              | blank/missing                  | Set                         | Set-ADUser -ChangePasswordAtLogon $true  | Existing logic  |
+| Yes              | blank/missing                  | Not set                     | Silently ignore                   |                 |
+| No               | TRUE/positive                  | don't care                  | Warn and Do not set               |                 |
+| No               | FALSE/negative                 | don't care                  | Set-ADUser -ChangePasswordAtLogon $false |                 |
+| No               | blank/missing                  | Set                         | Warn and Do not set               | Existing logic  |
+| No               | blank/missing                  | Not Set                     | Silently ignore                   |                 |
 
 ---
