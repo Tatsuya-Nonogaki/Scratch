@@ -40,10 +40,12 @@
   is required to restore the "Enabled" flag of the account.
 
   Note: You may also add a "ChangePasswordAtLogon" column to the user CSV.
-  If specified, this column takes precedence over the userAccountControl bit for controlling the
-  "User must change password at next logon" setting. Acceptable values are TRUE, YES, or 1 (case-insensitive)
-  to enable, and FALSE, NO, or 0 to disable. When set to TRUE, a password must also be provided;
-  when set to FALSE, the flag will be cleared regardless of password state.
+  If specified, this column takes precedence over the userAccountControl bit for 
+  controlling the "User must change password at next logon" setting. Acceptable 
+  values are TRUE, YES, or 1 (case-insensitive) to enable, and FALSE, NO, or 0 to 
+  disable. When set to positive value (TRUE, etc.), a password must also be provided; 
+  when set to negative value, the flag will be cleared regardless of password state, 
+  as Active Directory does not prohibit this operation.
 
  .PARAMETER Group
   (Alias -g) Operates in group import mode. Can be omitted if -GroupFile is specified.
@@ -55,9 +57,9 @@
  .PARAMETER FixGroup
   Optional. Operates in a post-import fixup mode for existing groups (distinct from 
   -User and -Group import modes). 
-  Currently, this mode registers the ManagedBy attribute for groups using the 
-  specified GroupFile. This must be run after users and groups have already been 
-  imported, since ManagedBy references are typically user accounts.
+  Currently, this mode registers the ManagedBy attribute for groups, using the same 
+  GroupFile as in the import step. This must be run after users and groups have 
+  already been imported, since ManagedBy references are typically user accounts.
   Mutually exclusive with -User, -UserFile, and -Group. Requires -GroupFile (or 
   prompts if omitted).
   Use the same advanced options (-TrimOU, -NoUsersContainer, -NoForceUsersContainer) 
