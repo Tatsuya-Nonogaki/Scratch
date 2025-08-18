@@ -4,7 +4,7 @@
  
  .DESCRIPTION
   Exports users and groups from Active Directory to CSV files.
-  Version: 0.7.13-comp_draft-001
+  Version: 0.8.0
  
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth. 
@@ -66,7 +66,7 @@ param(
 
     [Parameter()]
     [Alias("comp")]
-    [string]$Computer,
+    [switch]$Computer,
 
     [Parameter()]
     [Alias("nosys")]
@@ -148,7 +148,7 @@ process {
         return $DNPath.TrimEnd(',')
     }
 
-    # Get output folder path
+    # Determine output folder path
     function Select-OutputFolderPath {
         $outputFolderPath = ""
         if (-not $OutPath) {
@@ -220,21 +220,45 @@ process {
         $domain = $DNPrefix.Replace('.', '_')
     }
 
-    $userOutputFilePath = $outputFolderPath + "\Users_" + $domain + ".csv"
-    $groupOutputFilePath = $outputFolderPath + "\Groups_" + $domain + ".csv"
-    $ComputerOutputFilePath = $outputFolderPath + "\Computers_" + $domain + ".csv"
-
-    # Export Computers -The New mode-
+    # Export Computers
     if ($Computer) {
-        write-host "Computer Output File Path = $ComputerOutputFilePath"
-        #----New code here----
+        $computerOutputFilePath = $outputFolderPath + "\Computers_" + $domain + ".csv"
+        Write-Host "Computer Output File Path = $computerOutputFilePath"
+
+        # Properties to export for computers
+        $computerExtraProps = "MemberOf", "ManagedBy", "*"
+
+        # Specific system computer objects to exclude
+        # You may extend $excludedComputers if necessary.
+        # Critical system objects are dealt with by $ExcludeSystemObject parameter later on.
+        $excludedComputers = @()  
+
+        Get-ADComputer -Filter * -Properties $computerExtraProps -SearchBase "$DNPath" |
+          Where-Object {
+            if ($ExcludeSystemObject) {
+                if ($_.isCriticalSystemObject -eq "TRUE" -or $_.sAMAccountName -in $excludedComputers) {
+                    Write-Host "Excluded System Computer: $($_.sAMAccountName)"
+                    return $false
+                } else {
+                    return $true
+                }
+            } else {
+                return $true
+            }
+          } |
+          Select-Object @{Name="MemberOf"; Expression={$_.MemberOf -join ";"}}, * -ExcludeProperty MemberOf |
+            Export-Csv -Path $computerOutputFilePath -Encoding UTF8 -NoTypeInformation
+
+        Write-Host "Exported AD Computers to $computerOutputFilePath"
+
         exit
     }
-
-    write-host "User Output File Path = $userOutputFilePath"
-    write-host "Group Output File Path = $groupOutputFilePath"
+    # ..else, process Users and Groups
 
     # Export Users
+    $userOutputFilePath = $outputFolderPath + "\Users_" + $domain + ".csv"
+    write-host "User Output File Path = $userOutputFilePath"
+
     # Additional user properties we want to include in output
     $userExtraProps = "MemberOf", "EmailAddress", "HomePhone", "MobilePhone", "OfficePhone", "Title", "Department", "Manager", "LockedOut", "*"
 
@@ -258,8 +282,12 @@ process {
                     @{Name="Manager"; Expression={ if ($_.Manager) { (Get-ADUser -Identity $_.Manager).DistinguishedName } else { $null } }}, `
                     * -ExcludeProperty MemberOf, Manager | 
         Export-Csv -Path $userOutputFilePath -Encoding UTF8 -NoTypeInformation
+        Write-Host "Exported AD Users to $userOutputFilePath"
 
     # Export Groups
+    $groupOutputFilePath = $outputFolderPath + "\Groups_" + $domain + ".csv"
+    write-host "Group Output File Path = $groupOutputFilePath"
+
     # Additional group properties we want to include in output
     $groupExtraProps = "MemberOf", "ManagedBy", "*"
 
@@ -284,6 +312,7 @@ process {
       } | 
       Select-Object @{Name="MemberOf"; Expression={$_.MemberOf -join ";"}}, * -ExcludeProperty MemberOf |
         Export-Csv -Path $groupOutputFilePath -Encoding UTF8 -NoTypeInformation
+        Write-Host "Exported AD Groups to $groupOutputFilePath"
 
 # End of process
 }
