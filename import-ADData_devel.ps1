@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-a (+ computer import)
+  Version: 0.9.7-b (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -70,7 +70,7 @@
   already been imported, since ManagedBy references are typically user accounts.
   Mutually exclusive with other modes (-User/-Group/-computer). Requires -GroupFile 
   (or prompts if omitted).
-  Use the same advanced options (-TrimOU, -NoUsersContainer, -NoForceUsersContainer) 
+  Use the same advanced options (-TrimOU, -NoDefaultContainer, -NoForceDefaultContainer) 
   as in your previous imports.
   This mode does not create or remove any groups or users; it only updates ManagedBy 
   for existing groups.
@@ -103,33 +103,21 @@
   Always enclose multiple names in quotes, e.g. -TrimOU "deeper,sales".
   For full details and examples, see the README.
 
- .PARAMETER NoUsersContainer
-  If specified, users and groups that would otherwise be created in the 'Users' 
-  container (CN=Users,DC=...) are instead created directly under the domain root 
-  (DC=...). This option also affects cases where -TrimOU causes the object to be 
-  relocated to the domain root.
-  This parameter is mutually exclusive with -NoForceUsersContainer.
+ .PARAMETER NoDefaultContainer
+  If specified, the account that would otherwise be created in the "default" container 
+  are instead created directly under the domain root (DC=...). By AD's default, the 
+  container is 'Users' (CN=Users,DC=...) for user and group, and 'Computers' for computer. 
+  This option also affects cases where -TrimOU causes the object to be relocated to the 
+  domain root.
+  This parameter is mutually exclusive with -NoForceDefaultContainer.
 
- .PARAMETER NoComputersContainer
-  If specified, Computers and groups that would otherwise be created in the 'Computers' 
-  container (CN=Computers,DC=...) are instead created directly under the domain root 
-  (DC=...). This option also affects cases where -TrimOU causes the object to be 
-  relocated to the domain root.
-  This parameter is mutually exclusive with -NoForceComputersContainer.
-
- .PARAMETER NoForceUsersContainer
-  If specified, objects are imported exactly as their DN dictates: if the users or 
-  groups are directly under the domain root, they are imported there; if they are 
-  under the 'Users' container, they remain in 'Users'. This option also affects 
-  cases where -TrimOU causes the object to be relocated to the domain root. 
-  This parameter is mutually exclusive with -NoUsersContainer.
-
- .PARAMETER NoForceComputersContainer
-  If specified, objects are imported exactly as their DN dictates: if the Computers or 
-  groups are directly under the domain root, they are imported there; if they are 
-  under the 'Computers' container, they remain in 'Computers'. This option also affects 
-  cases where -TrimOU causes the object to be relocated to the domain root. 
-  This parameter is mutually exclusive with -NoComputersContainer.
+ .PARAMETER NoForceDefaultContainer
+  If specified, objects are imported exactly as their DN dictates: if the objects 
+  are directly under the domain root in the source, they are imported there; if they 
+  are under the "default" container (see NoDefaultContainer), they remain in destinations 
+  "default" container. This option also affects cases where -TrimOU causes the object 
+  to be relocated to the domain root. 
+  This parameter is mutually exclusive with -NoDefaultContainer.
 
  .EXAMPLE
   # Import AD Groups from CSV to a new domain, excluding system objects
@@ -150,14 +138,14 @@
   #   CN=foo,OU=deeper,OU=sales,DC=olddomain,DC=local
   # then -TrimOU "deeper,sales" will result in:
   #   CN=foo,DC=domain,DC=local
-  .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoUsersContainer
+  .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users_deeper_sales_domain_local.csv" -TrimOU "deeper,sales" -NoDefaultContainer
 
  .EXAMPLE
   # Register ManagedBy property for Groups after importing Groups and Users.
   .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -GroupFile ".\Groups_olddomain_local.csv"
   .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -UserFile ".\Users_olddomain_local.csv"
   .\import-ADData.ps1 -DNPath "DC=newdomain,DC=local" -FixGroup -GroupFile ".\Groups_olddomain_local.csv"
-  # You must use exactly the same advanced options (if applicable: -TrimOU, -NoUsersContainer, -NoForceUsersContainer) for all runs in this sequence to avoid DN path translation mismatches.
+  # You must use exactly the same advanced options (if applicable: -TrimOU, -NoDefaultContainer, -NoForceDefaultContainer) for all runs in this sequence to avoid DN path translation mismatches.
 #>
 [CmdletBinding()]
 param(
@@ -215,16 +203,10 @@ param(
     [string]$TrimOU,
 
     [Parameter()]
-    [switch]$NoUsersContainer,
+    [switch]$NoDefaultContainer,
 
     [Parameter()]
-    [switch]$NoComputersContainer,
-
-    [Parameter()]
-    [switch]$NoForceUsersContainer,
-
-    [Parameter()]
-    [switch]$NoForceComputersContainer
+    [switch]$NoForceDefaultContainer
 )
 
 begin {
@@ -247,9 +229,9 @@ begin {
         exit
     }
 
-    # Mutually exclusive: NoUsersContainer and NoForceUsersContainer
-    if ($NoUsersContainer -and $NoForceUsersContainer) {
-        throw "Error: -NoUsersContainer and -NoForceUsersContainer are mutually exclusive. Please specify only one."
+    # Mutually exclusive: NoDefaultContainer and NoForceDefaultContainer
+    if ($NoDefaultContainer -and $NoForceDefaultContainer) {
+        throw "Error: -NoDefaultContainer and -NoForceDefaultContainer are mutually exclusive. Please specify only one."
     }
 
     if (-not $PSBoundParameters.ContainsKey('DNPath')) {
@@ -278,38 +260,49 @@ begin {
             exit 2
         }
     }
+    if ($PSBoundParameters.ContainsKey('ComputerFile')) {
+        if (-not $ComputerFile -or $ComputerFile.Trim() -eq "") {
+            Write-Host "Error: -ComputerFile was specified but is blank or whitespace." -ForegroundColor Red
+            exit 2
+        }
+    }
 
+    # Main mode parameters and mutual exclusion checks
     $userMode = $false
     $groupMode = $false
+    $computerMode = $false
     $fixGroupMode = $false
 
     $wantUser = $User -or $PSBoundParameters.ContainsKey('UserFile')
     $wantGroup = $Group -or $PSBoundParameters.ContainsKey('GroupFile')
+    $wantComputer = $Computer -or $PSBoundParameters.ContainsKey('ComputerFile')
     $wantFixGroup = $FixGroup
 
     if ($wantFixGroup) {
-        if ($wantUser) {
-            Write-Host "Error: -FixGroup cannot be combined with -User or -UserFile." -ForegroundColor Red
-            exit 2
-        }
-        if ($Group) {
-            Write-Host "Error: -FixGroup cannot be combined with -Group. -GroupFile is acceptable." -ForegroundColor Red
+        if ($wantUser -or $wantGroup -or $wantComputer) {
+            Write-Host "Error: -FixGroup cannot be combined with -User, -Group, or -Computer modes." -ForegroundColor Red
             exit 2
         }
         $fixGroupMode = $true
     }
-    elseif ($wantUser -and $wantGroup) {
-        Write-Host "Error: Specify only one of User mode (-User, -UserFile) or Group mode (-Group, -GroupFile)." -ForegroundColor Red
+    elseif (($wantUser + $wantGroup + $wantComputer) -gt 1) {
+        Write-Host "Error: Specify only one of User mode (-User, -UserFile), Group mode (-Group, -GroupFile), or Computer mode (-Computer, -ComputerFile)." -ForegroundColor Red
         exit 2
     }
     elseif ($wantUser) {
         $userMode = $true
+        $DefaultContainerName = "Users"
     }
     elseif ($wantGroup) {
         $groupMode = $true
+        $DefaultContainerName = "Users"
+    }
+    elseif ($wantComputer) {
+        $computerMode = $true
+        $DefaultContainerName = "Computers"
     }
     else {
-        Write-Host "Error: At least one of -User and/or -UserFile, -Group and/or -GroupFile, or -FixGroup must be specified." -ForegroundColor Red
+        Write-Host "Error: At least one of -User (-UserFile), -Group (-GroupFile), -Computer (-ComputerFile), or -FixGroup must be specified." -ForegroundColor Red
         exit 2
     }
 
@@ -334,7 +327,7 @@ begin {
     # TrimOU parsing and validation
     $TrimOUList = @()
     if ($PSBoundParameters.ContainsKey('TrimOU')) {
-        $reservedWords = @('ou', 'cn', 'dc', 'users', '=')
+        $reservedWords = @('ou', 'cn', 'dc', 'users', 'computers', '=')
         $TrimOUList = $TrimOU -split ',' | ForEach-Object { $_.Trim() }
         $trimCount = $TrimOUList.Count
 
@@ -348,7 +341,7 @@ begin {
                 Write-Host $msg -ForegroundColor Red
                 Write-Log $msg
                 throw $msg
-            }
+             }
           # Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
         }
     }
@@ -579,32 +572,38 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # --- 3-B. In case no OUs remain: only CN and DC ---
-        $isUsersContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
+        $isDefaultContainer = $oldDN -match "^CN=.*?,CN=$($DefaultContainerName),DC="
+        # Above leverages subexpression expansion "$($var)". If it fails, use the safest below 
+        #if ($computerMode) {
+        #    $isDefaultContainer = $oldDN -match "^CN=.*?,CN=Computers,DC="
+        #} else {
+        #    $isDefaultContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
+        #}
         $importBaseHasOU = $newDNPath -match '^OU='
 
-        if ($NoUsersContainer) {
-            # Always place at domain base (strip Users container)
+        if ($NoDefaultContainer) {
+            # Always place at domain base (strip default container)
             return $newDNPath
         }
-        elseif ($NoForceUsersContainer) {
-            # Place as-is: if Users container, keep; else domain base
-            if ($isUsersContainer) {
-                # If import base has OU, ignore CN=Users (place in OU); else, keep Users container
+        elseif ($NoForceDefaultContainer) {
+            # Place as-is: if default container, keep; else domain base
+            if ($isDefaultContainer) {
+                # If import base has OU, ignore default container (place in OU); else, keep default container
                 if ($importBaseHasOU) {
                     return $newDNPath
                 } else {
-                    return "CN=Users," + $baseDC
+                    return "CN=$DefaultContainerName," + $baseDC
                 }
             } else {
                 return $newDNPath
             }
         }
         else {
-            # Default: If import base has OU, place in that OU; else, in CN=Users
+            # Default: If import base has OU, place in that OU; else, in CN=DefaultContainerName
             if ($importBaseHasOU) {
                 return $newDNPath
             } else {
-                return "CN=Users," + $baseDC
+                return "CN=$DefaultContainerName," + $baseDC
             }
         }
     }
@@ -1025,7 +1024,6 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         Name           = $comp.Name
                         SamAccountName = $sAMAccountName
                         Description    = $comp.Description
-                        ManagedBy      = $managedByDN
                         Location       = $comp.Location
                     }
 
@@ -1052,7 +1050,32 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         continue
                     }
 
-                    # Disable account if source userAccountControl has disabled bit
+                    # Set additional properties using Set-ADComputer
+                    $additionalProperties = @{
+                        ManagedBy              = $managedByDN
+                        OperatingSystem        = $comp.OperatingSystem        # Will be overwritten on actual computer join
+                        OperatingSystemVersion = $comp.OperatingSystemVersion # Will be overwritten on actual computer join
+                        DNSHostName            = $comp.DNSHostName            # Will be overwritten on actual computer join
+                    }
+
+                    foreach ($property in $additionalProperties.Keys) {
+                        if ($additionalProperties[$property] -ne $null -and $additionalProperties[$property] -ne "") {
+                            $params = @{
+                                Identity = $sAMAccountName
+                            }
+                            $params[$property] = $additionalProperties[$property]
+                            Try {
+                                Set-ADComputer @params
+                                Write-Host "  => Property $property set for computer: $sAMAccountName"
+                                Write-Log "Property $property set for computer: sAMAccountName=$sAMAccountName"
+                            } Catch {
+                                Write-Host "Warning: Failed to set property $property for computer ${sAMAccountName}" -ForegroundColor Yellow
+                                Write-Log "Failed to set property $property for computer: sAMAccountName=$sAMAccountName - $_"
+                            }
+                        }
+                    }
+
+                    # Disable computer account if source userAccountControl has disabled bit
                     if ([int]$comp.userAccountControl -band 2) {
                         try {
                             Disable-ADAccount -Identity $sAMAccountName
@@ -1189,13 +1212,13 @@ Review your CSV. To override this check, use -NoClassCheck.)
         Write-Host $trimMsg
         Write-Log $trimMsg
     }
-    if ($NoUsersContainer) {
-        Write-Host "Option: 'NoUsersContainer' enabled"
-        Write-Log  "Option: 'NoUsersContainer' enabled"
+    if ($NoDefaultContainer) {
+        Write-Host "Option: 'NoDefaultContainer' enabled"
+        Write-Log  "Option: 'NoDefaultContainer' enabled"
     }
-    if ($NoForceUsersContainer) {
-        Write-Host "Option: 'NoForceUsersContainer' enabled"
-        Write-Log  "Option: 'NoForceUsersContainer' enabled"
+    if ($NoForceDefaultContainer) {
+        Write-Host "Option: 'NoForceDefaultContainer' enabled"
+        Write-Log  "Option: 'NoForceDefaultContainer' enabled"
     }
     if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
         $upnMsg = "Option: 'NewUPNSuffix' specified: $NewUPNSuffix"
