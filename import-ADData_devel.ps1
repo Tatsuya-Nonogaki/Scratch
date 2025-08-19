@@ -354,11 +354,15 @@ process {
         param (
             [string]$type
         )
+
         if ($type -eq "user") {
             $req = "user CSV file"
         } elseif ($type -eq "group") {
             $req = "group CSV file"
+        } elseif ($type -eq "computer") {
+            $req = "computer CSV file"
         }
+
         Add-Type -AssemblyName System.Windows.Forms
         $fileBrowser = New-Object System.Windows.Forms.OpenFileDialog
         $fileBrowser.Title = "Select the $req"
@@ -1278,6 +1282,33 @@ Review your CSV. To override this check, use -NoClassCheck.)
         Write-Host "User File Path: $UserFile"
         Write-Log "User File Path: $UserFile"
         Import-ADObject -filePath $UserFile -objectClass "user"
+    }
+
+    # Computer Data Import Mode
+    if ($computerMode) {
+        # Select the computer file if not specified
+        if (-not $ComputerFile) {
+            $ComputerFile = Select-Input-File -type "computer"
+        }
+        if (-not (Test-Path $ComputerFile)) {
+            Write-Error "Specified ComputerFile does not exist"
+            exit 1
+        }
+
+        # Warn if looks like a user file
+        $groupFileName = Split-Path $GroupFile -Leaf
+        if ($groupFileName -match '(?i)(^|[._ -])user([._ -]|s|$)') {
+            Write-Host "Warning: The group file name implies it is a user data file." -ForegroundColor Yellow
+            $resp = Read-Host "Continue anyway? [Y]/N"
+            if ($resp -and $resp -match '^(n|no)$') {
+                Write-Host "Aborted by user." -ForegroundColor Yellow
+                exit 1
+            }
+        }
+
+        Write-Host "Computer File Path: $ComputerFile"
+        Write-Log "Computer File Path: $ComputerFile"
+        Import-ADObject -filePath $ComputerFile -objectClass "computer"
     }
 
     # Group Fixup/Fixate Mode
