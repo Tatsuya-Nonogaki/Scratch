@@ -10,7 +10,7 @@
   Special options allow for placing users/groups with no OU or in the 'Users' 
   container directly under the domain root, or for importing objects as-is.
   
-  Version: 0.9.6-e
+  Version: 0.9.7
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -96,14 +96,18 @@
   For full details and examples, see the README.
 
  .PARAMETER NoUsersContainer
-  Optional. Place users/groups with no OU, or in the 'Users' container, directly under 
-  the domain root (DC=...) instead of the default CN=Users container.
-  Mutually exclusive with -NoForceUsersContainer.
+  If specified, users and groups that would otherwise be created in the 'Users' 
+  container (CN=Users,DC=...) are instead created directly under the domain root 
+  (DC=...). This option also affects cases where -TrimOU causes the object to be 
+  relocated to the domain root.
+  This parameter is mutually exclusive with -NoForceUsersContainer.
 
  .PARAMETER NoForceUsersContainer
-  Optional. Import objects as their DN dictates: if the DN is directly under the 
-  domain root, import as is; if under Users container, import as is.
-  Mutually exclusive with -NoUsersContainer.
+  If specified, objects are imported exactly as their DN dictates: if the users or 
+  groups are directly under the domain root, they are imported there; if they are 
+  under the 'Users' container, they remain in 'Users'. This option also affects 
+  cases where -TrimOU causes the object to be relocated to the domain root. 
+  This parameter is mutually exclusive with -NoUsersContainer.
 
  .EXAMPLE
   # Import AD Groups from CSV to a new domain, excluding system objects
