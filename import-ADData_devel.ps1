@@ -1030,7 +1030,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     }
 
                     Try {
-                        if ($ouPath -match '^CN=Users,DC=') {
+                        if ($ouPath -match '^CN=Computers,DC=') {
                             New-ADComputer @newComputerParams -ErrorAction Stop
                             Write-Log "New-ADComputer `@newComputerParams"
                         } else {
