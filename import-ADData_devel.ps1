@@ -1,16 +1,17 @@
 <#
  .SYNOPSIS
-  Imports users and groups into Active Directory.
+  Imports users, groups, and computers into Active Directory.
 
  .DESCRIPTION
-  Imports users and groups into Active Directory from CSV files.
+  Imports users, groups, and computers into Active Directory from CSV files.
   Supports advanced scenarios such as domain migration, OU reorganization, flattening 
   OU hierarchies by trimming OUs, and more.
   Automatically creates missing intermediate OUs as needed.
   Special options allow for placing users/groups with no OU or in the 'Users' 
-  container directly under the domain root, or for importing objects as-is.
+  container, or computers with no OU or in the 'Computers' container, directly 
+  under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7
+  Version: 0.9.7-a (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -54,14 +55,21 @@
   (Alias -gf) Path to group CSV file. If omitted with -Group, a file selection 
   dialog prompts you.
 
+ .PARAMETER Computer
+  (Alias -c) Operates in computer import mode. Can be omitted if -ComputerFile is specified.
+
+ .PARAMETER ComputerFile
+  (Alias -cf) Path to computer CSV file. If omitted with -Computer, a file selection 
+  dialog prompts you.
+
  .PARAMETER FixGroup
   Optional. Operates in a post-import fixup mode for existing groups (distinct from 
   -User and -Group import modes). 
   Currently, this mode registers the ManagedBy attribute for groups, using the same 
   GroupFile as in the import step. This must be run after users and groups have 
   already been imported, since ManagedBy references are typically user accounts.
-  Mutually exclusive with -User, -UserFile, and -Group. Requires -GroupFile (or 
-  prompts if omitted).
+  Mutually exclusive with other modes (-User/-Group/-computer). Requires -GroupFile 
+  (or prompts if omitted).
   Use the same advanced options (-TrimOU, -NoUsersContainer, -NoForceUsersContainer) 
   as in your previous imports.
   This mode does not create or remove any groups or users; it only updates ManagedBy 
@@ -69,14 +77,14 @@
 
  .PARAMETER NoClassCheck
   By default, this script automatically checks that all records in the input file 
-  have an 'ObjectClass' matching the selected import mode (user or group), before 
+  have an 'ObjectClass' matching the selected import mode (user/group/computer), before 
   importing anything. This switch disables the check, thus allowing you to import 
   files that are missing the column, or that contain mixed or incorrect types.
   Only use this if you know what you are doing.
 
  .PARAMETER IncludeSystemObject
-  Optional. Import also critical system users/groups and trusted DOMAIN$ (normally 
-  dangerous for regular environments).
+  Optional. Import also critical system users/groups/computers and trusted DOMAIN$ 
+  (normally dangerous for regular environments).
 
  .PARAMETER NewUPNSuffix
   Optional. Specify a new UserPrincipalName suffix for imported users. Defaults to 
@@ -91,7 +99,7 @@
   they are trimmed.
   It accepts a comma-separated list of OU names (without 'OU=' prefix). Only plain 
   OU names are allowed.
-  Reserved words (ou, cn, dc, users, =) are not permitted (case-insensitive match).
+  Reserved words (ou, cn, dc, users, computers, =) are not permitted (case-insensitive match).
   Always enclose multiple names in quotes, e.g. -TrimOU "deeper,sales".
   For full details and examples, see the README.
 
@@ -102,12 +110,26 @@
   relocated to the domain root.
   This parameter is mutually exclusive with -NoForceUsersContainer.
 
+ .PARAMETER NoComputersContainer
+  If specified, Computers and groups that would otherwise be created in the 'Computers' 
+  container (CN=Computers,DC=...) are instead created directly under the domain root 
+  (DC=...). This option also affects cases where -TrimOU causes the object to be 
+  relocated to the domain root.
+  This parameter is mutually exclusive with -NoForceComputersContainer.
+
  .PARAMETER NoForceUsersContainer
   If specified, objects are imported exactly as their DN dictates: if the users or 
   groups are directly under the domain root, they are imported there; if they are 
   under the 'Users' container, they remain in 'Users'. This option also affects 
   cases where -TrimOU causes the object to be relocated to the domain root. 
   This parameter is mutually exclusive with -NoUsersContainer.
+
+ .PARAMETER NoForceComputersContainer
+  If specified, objects are imported exactly as their DN dictates: if the Computers or 
+  groups are directly under the domain root, they are imported there; if they are 
+  under the 'Computers' container, they remain in 'Computers'. This option also affects 
+  cases where -TrimOU causes the object to be relocated to the domain root. 
+  This parameter is mutually exclusive with -NoComputersContainer.
 
  .EXAMPLE
   # Import AD Groups from CSV to a new domain, excluding system objects
@@ -163,14 +185,22 @@ param(
     [switch]$Group,
 
     [Parameter()]
+    [Alias("gf")]
+    [string]$GroupFile,
+
+    [Parameter()]
+    [Alias("c")]
+    [switch]$Computer,
+
+    [Parameter()]
+    [Alias("cf")]
+    [string]$ComputerFile,
+
+    [Parameter()]
     [switch]$FixGroup,
 
     [Parameter()]
     [switch]$NoClassCheck,
-
-    [Parameter()]
-    [Alias("gf")]
-    [string]$GroupFile,
 
     [Parameter()]
     [switch]$IncludeSystemObject,
@@ -188,7 +218,13 @@ param(
     [switch]$NoUsersContainer,
 
     [Parameter()]
-    [switch]$NoForceUsersContainer
+    [switch]$NoComputersContainer,
+
+    [Parameter()]
+    [switch]$NoForceUsersContainer,
+
+    [Parameter()]
+    [switch]$NoForceComputersContainer
 )
 
 begin {
@@ -949,6 +985,105 @@ Review your CSV. To override this check, use -NoClassCheck.)
                 } else {
                     Write-Host "Group $sAMAccountName already exists; skipping import"
                     Write-Log "Group Skipped (Already Exists): sAMAccountName=$sAMAccountName"
+                }
+            }
+
+        } elseif ($objectClass -eq "computer") {
+            $excludedComputers = @() # Extend if you want to exclude specific accounts
+
+            $computers = Import-Csv -Path $filePath | Where-Object {
+                if ($IncludeSystemObject) {
+                    return $true
+                } else {
+                    if ($_.isCriticalSystemObject -eq "TRUE" -or $_.sAMAccountName -in $excludedComputers) {
+                        Write-Host "Excluded System Computer: $($_.sAMAccountName)"
+                        Write-Log "Excluded System Computer: sAMAccountName=$($_.sAMAccountName)"
+                        return $false
+                    } else {
+                        return $true
+                    }
+                }
+            }
+
+            # Ensure these records are of AD Computers
+            Test-ObjectClassColumn -CsvRows $computers -ExpectClass 'computer' -NoClassCheck:$NoClassCheck
+
+            foreach ($comp in $computers) {
+                $sAMAccountName = $comp.sAMAccountName
+
+                # Check existence of the computer
+                $computerExists = Get-ADComputer -Filter "SamAccountName -eq '$sAMAccountName'" -ErrorAction SilentlyContinue
+
+                if (-not $computerExists) {
+                    Write-Host "Processing computer sAMAccountName=`"$sAMAccountName`""
+                    Write-Log "Processing computer sAMAccountName=`"$sAMAccountName`""
+
+                    $ouPath = ConvertDNBase -oldDN $comp.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
+                    $managedByDN = if ($comp.ManagedBy -ne "") { Get-NewDN -originalDN $comp.ManagedBy -DNPath $DNPath } else { $null }
+
+                    $newComputerParams = @{
+                        Name           = $comp.Name
+                        SamAccountName = $sAMAccountName
+                        Description    = $comp.Description
+                        ManagedBy      = $managedByDN
+                        Location       = $comp.Location
+                    }
+
+                    Try {
+                        if ($ouPath -match '^CN=Users,DC=') {
+                            New-ADComputer @newComputerParams -ErrorAction Stop
+                            Write-Log "New-ADComputer `@newComputerParams"
+                        } else {
+                            New-ADComputer @newComputerParams -Path $ouPath -ErrorAction Stop
+                            Write-Log "New-ADComputer `@newComputerParams -Path $ouPath"
+                        }
+                    } Catch {
+                        Write-Error "Failed to create computer ${sAMAccountName}: $_"
+                        Write-Log "Failed to create computer: sAMAccountName=$sAMAccountName - $_"
+                    }
+
+                    $createdComputer = Get-ADComputer -Filter "SamAccountName -eq '$sAMAccountName'" -Properties DistinguishedName
+                    if ($createdComputer) {
+                        Write-Host "Computer Created DistinguishedName=$($createdComputer.DistinguishedName)"
+                        Write-Log "Computer Created: sAMAccountName=${sAMAccountName}, DistinguishedName=$($createdComputer.DistinguishedName)"
+                    } else {
+                        Write-Host "Computer creation failed for ${sAMAccountName}; skipping further property setting." -ForegroundColor Red
+                        Write-Log "Computer creation failed for sAMAccountName=${sAMAccountName}; skipping further property setting."
+                        continue
+                    }
+
+                    # Disable account if source userAccountControl has disabled bit
+                    if ([int]$comp.userAccountControl -band 2) {
+                        try {
+                            Disable-ADAccount -Identity $sAMAccountName
+                            Write-Host "  => Account disabled: $sAMAccountName"
+                            Write-Log "Account disabled: sAMAccountName=$sAMAccountName"
+                        } catch {
+                            Write-Error "Failed to disable computer account ${sAMAccountName}: $_"
+                            Write-Log "Failed to disable computer account: sAMAccountName=$sAMAccountName - $_"
+                        }
+                    }
+
+                    # Add this computer to groups
+                    $memberOfGroups = $comp.MemberOf -split ';'
+                    foreach ($mgrp in $memberOfGroups) {
+                        if ($mgrp -ne "") {
+                            try {
+                                $newDN = Get-NewDN -originalDN $mgrp -DNPath $DNPath
+
+                                Add-ADGroupMember -Identity $newDN -Members $($createdComputer.DistinguishedName)
+                                Write-Host "Added computer $sAMAccountName to group: $newDN"
+                                Write-Log "Computer: sAMAccountName=$sAMAccountName added to group: $newDN"
+                            } catch {
+                                Write-Host "Failed to add computer $sAMAccountName to group $newDN. Error: $_" -ForegroundColor Red
+                                Write-Log "Failed to add computer sAMAccountName=$sAMAccountName to group: $newDN - $_"
+                            }
+                        }
+                    }
+                }
+                else {
+                    Write-Host "Computer $sAMAccountName already exists; skipping import"
+                    Write-Log "Computer Skipped (Already Exists): sAMAccountName=$sAMAccountName"
                 }
             }
         }
