@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-b (+ computer import)
+  Version: 0.9.7-c (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -373,6 +373,24 @@ process {
             return $fileBrowser.FileName
         }
         return ""
+    }
+
+    function FileName-Match-Type {
+        param (
+            [string]$FilePath,
+            [string]$Type
+        )
+        $fileName = Split-Path $FilePath -Leaf
+        if ($fileName -match "(?i)(^|[._ -])$($Type)([._ -]|s|$)") {
+            Write-Host "Warning: The file name implies it is a $Type data file." -ForegroundColor Yellow
+            $resp = Read-Host "Continue anyway? [Y]/N"
+            if ($resp -and $resp -match '^(n|no)$') {
+                Write-Host "Aborted by user." -ForegroundColor Yellow
+                return $true
+            }
+            return $false
+        }
+        return $false
     }
 
     # Generate DN path from DN prefix
@@ -1241,16 +1259,9 @@ Review your CSV. To override this check, use -NoClassCheck.)
             exit 1
         }
 
-        # Warn if looks like a user file
-        $groupFileName = Split-Path $GroupFile -Leaf
-        if ($groupFileName -match '(?i)(^|[._ -])user([._ -]|s|$)') {
-            Write-Host "Warning: The group file name implies it is a user data file." -ForegroundColor Yellow
-            $resp = Read-Host "Continue anyway? [Y]/N"
-            if ($resp -and $resp -match '^(n|no)$') {
-                Write-Host "Aborted by user." -ForegroundColor Yellow
-                exit 1
-            }
-        }
+        # Warn if filename looks like other modes
+        if (FileName-Match-Type -FilePath $groupFile -Type "user") { exit 1 }
+        if (FileName-Match-Type -FilePath $groupFile -Type "computer") { exit 1 }
 
         Write-Host "Group File Path: $GroupFile"
         Write-Log "Group File Path: $GroupFile"
@@ -1268,16 +1279,9 @@ Review your CSV. To override this check, use -NoClassCheck.)
             exit 1
         }
 
-        # Warn if looks like a group file
-        $userFileName = Split-Path $UserFile -Leaf
-        if ($userFileName -match '(?i)(^|[._ -])group([._ -]|s|$)') {
-            Write-Host "Warning: The user file name implies it is a group data file." -ForegroundColor Yellow
-            $resp = Read-Host "Continue anyway? [Y]/N"
-            if ($resp -and $resp -match '^(n|no)$') {
-                Write-Host "Aborted by user." -ForegroundColor Yellow
-                exit 1
-            }
-        }
+        # Warn if filename looks like other modes
+        if (FileName-Match-Type -FilePath $UserFile -Type "group") { exit 1 }
+        if (FileName-Match-Type -FilePath $UserFile -Type "computer") { exit 1 }
 
         Write-Host "User File Path: $UserFile"
         Write-Log "User File Path: $UserFile"
@@ -1295,23 +1299,16 @@ Review your CSV. To override this check, use -NoClassCheck.)
             exit 1
         }
 
-        # Warn if looks like a user file
-        $groupFileName = Split-Path $GroupFile -Leaf
-        if ($groupFileName -match '(?i)(^|[._ -])user([._ -]|s|$)') {
-            Write-Host "Warning: The group file name implies it is a user data file." -ForegroundColor Yellow
-            $resp = Read-Host "Continue anyway? [Y]/N"
-            if ($resp -and $resp -match '^(n|no)$') {
-                Write-Host "Aborted by user." -ForegroundColor Yellow
-                exit 1
-            }
-        }
+        # Warn if filename looks like other modes
+        if (FileName-Match-Type -FilePath $ComputerFile -Type "user") { exit 1 }
+        if (FileName-Match-Type -FilePath $ComputerFile -Type "group") { exit 1 }
 
         Write-Host "Computer File Path: $ComputerFile"
         Write-Log "Computer File Path: $ComputerFile"
         Import-ADObject -filePath $ComputerFile -objectClass "computer"
     }
 
-    # Group Fixup/Fixate Mode
+    # Group Fix Mode
     if ($fixGroupMode) {
         # Select the group file if not specified
         if (-not $GroupFile) {
@@ -1322,16 +1319,9 @@ Review your CSV. To override this check, use -NoClassCheck.)
             exit 1
         }
 
-        # Warn if looks like a user file
-        $groupFileName = Split-Path $GroupFile -Leaf
-        if ($groupFileName -match '(?i)(^|[._ -])user([._ -]|s|$)') {
-            Write-Host "Warning: The group file name implies it is a user data file." -ForegroundColor Yellow
-            $resp = Read-Host "Continue anyway? [Y]/N"
-            if ($resp -and $resp -match '^(n|no)$') {
-                Write-Host "Aborted by user." -ForegroundColor Yellow
-                exit 1
-            }
-        }
+        # Warn if filename looks like other modes
+        if (FileName-Match-Type -FilePath $groupFile -Type "user") { exit 1 }
+        if (FileName-Match-Type -FilePath $groupFile -Type "computer") { exit 1 }
 
         Write-Host "Group File Path: $GroupFile"
         Write-Log "Group File Path: $GroupFile"
