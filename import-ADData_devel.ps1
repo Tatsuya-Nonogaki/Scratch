@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-d (+ computer import)
+  Version: 0.9.7-e (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -512,6 +512,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         param (
             [string]$originalDN,
             [string]$DNPath
++            [string]$DefaultContainer = $DefaultContainerName
         )
 
         if (-not $originalDN) {
@@ -522,6 +523,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
             $cnPart = $matches[1]
         }
         $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath
++        $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath -DefaultContainer $DefaultContainer
 
         if ($cnPart) {
             Write-Log "debug :: Get-NewDN : return ${cnPart},$ouPath"
@@ -537,6 +539,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         param (
             [string]$oldDN,
             [string]$newDNPath,
++            [string]$DefaultContainer = $DefaultContainerName,
             [switch]$CreateOUIfNotExists
         )
 
