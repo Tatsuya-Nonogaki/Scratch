@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-c (+ computer import)
+  Version: 0.9.7-d (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -223,6 +223,28 @@ begin {
         "$Timestamp - $Message" | Out-File -Append -FilePath $LogFilePath -Encoding UTF8
     }
 
+    # Resolve Default Container name
+    function Get-DefaultContainerName {
+        param(
+            [string]$Want
+        )
+
+        if ($Want) {
+            switch ($Want.ToLower()) {
+                "user"      { return "Users" }
+                "group"     { return "Users" }
+                "fixgroup"  { return "Users" }
+                "computer"  { return "Computers" }
+                default     { return "Users" }
+            }
+        }
+        elseif ($wantFixGroup)   { return "Users" }
+        elseif ($wantUser)       { return "Users" }
+        elseif ($wantGroup)      { return "Users" }
+        elseif ($wantComputer)   { return "Computers" }
+        else                     { return "Users" }
+    }
+
     # Arguments validation
     if ($PSBoundParameters.Count -eq 0) {
         Get-Help $MyInvocation.InvocationName
@@ -291,20 +313,19 @@ begin {
     }
     elseif ($wantUser) {
         $userMode = $true
-        $DefaultContainerName = "Users"
     }
     elseif ($wantGroup) {
         $groupMode = $true
-        $DefaultContainerName = "Users"
     }
     elseif ($wantComputer) {
         $computerMode = $true
-        $DefaultContainerName = "Computers"
     }
     else {
         Write-Host "Error: At least one of -User (-UserFile), -Group (-GroupFile), -Computer (-ComputerFile), or -FixGroup must be specified." -ForegroundColor Red
         exit 2
     }
+
+    $DefaultContainerName = Get-DefaultContainerName
 
     # UPN suffix sanity check
     if ($PSBoundParameters.ContainsKey('NewUPNSuffix')) {
@@ -375,20 +396,26 @@ process {
         return ""
     }
 
-    function FileName-Match-Type {
+    function FileName-WrongType-Warn {
         param (
             [string]$FilePath,
-            [string]$Type
+            [string]$MyType
         )
+        $AllTypes = @("user", "group", "computer")
+        $OtherTypes = $AllTypes | Where-Object { $_ -ne $MyType }
         $fileName = Split-Path $FilePath -Leaf
-        if ($fileName -match "(?i)(^|[._ -])$($Type)([._ -]|s|$)") {
-            Write-Host "Warning: The file name implies it is a $Type data file." -ForegroundColor Yellow
-            $resp = Read-Host "Continue anyway? [Y]/N"
-            if ($resp -and $resp -match '^(n|no)$') {
-                Write-Host "Aborted by user." -ForegroundColor Yellow
-                return $true
+
+        foreach ($other in $OtherTypes) {
+            if ($fileName -match "(?i)(^|[._ -])$($other)([._ -]|s|$)") {
+                Write-Host "Warning: The file name implies it is a $other data file, not '$MyType'." -ForegroundColor Yellow
+                $resp = Read-Host "Continue anyway? [Y]/N"
+                if ($resp -and $resp -match '^(n|no)$') {
+                    Write-Host "Aborted by user." -ForegroundColor Yellow
+                    return $true
+                }
+                # Warn only once
+                break
             }
-            return $false
         }
         return $false
     }
@@ -1260,8 +1287,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # Warn if filename looks like other modes
-        if (FileName-Match-Type -FilePath $groupFile -Type "user") { exit 1 }
-        if (FileName-Match-Type -FilePath $groupFile -Type "computer") { exit 1 }
+        if (FileName-WrongType-Warn -FilePath $GroupFile -MyType "group") { exit 1 }
 
         Write-Host "Group File Path: $GroupFile"
         Write-Log "Group File Path: $GroupFile"
@@ -1280,8 +1306,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # Warn if filename looks like other modes
-        if (FileName-Match-Type -FilePath $UserFile -Type "group") { exit 1 }
-        if (FileName-Match-Type -FilePath $UserFile -Type "computer") { exit 1 }
+        if (FileName-WrongType-Warn -FilePath $UserFile -MyType "user") { exit 1 }
 
         Write-Host "User File Path: $UserFile"
         Write-Log "User File Path: $UserFile"
@@ -1300,8 +1325,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # Warn if filename looks like other modes
-        if (FileName-Match-Type -FilePath $ComputerFile -Type "user") { exit 1 }
-        if (FileName-Match-Type -FilePath $ComputerFile -Type "group") { exit 1 }
+        if (FileName-WrongType-Warn -FilePath $ComputerFile -MyType "computer") { exit 1 }
 
         Write-Host "Computer File Path: $ComputerFile"
         Write-Log "Computer File Path: $ComputerFile"
@@ -1320,8 +1344,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # Warn if filename looks like other modes
-        if (FileName-Match-Type -FilePath $groupFile -Type "user") { exit 1 }
-        if (FileName-Match-Type -FilePath $groupFile -Type "computer") { exit 1 }
+        if (FileName-WrongType-Warn -FilePath $GroupFile -MyType "group") { exit 1 }
 
         Write-Host "Group File Path: $GroupFile"
         Write-Log "Group File Path: $GroupFile"
