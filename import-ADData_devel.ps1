@@ -7,11 +7,11 @@
   Supports advanced scenarios such as domain migration, OU reorganization, flattening 
   OU hierarchies by trimming OUs, and more.
   Automatically creates missing intermediate OUs as needed.
-  Special options allow for placing users/groups with no OU or in the 'Users' 
-  container, or computers with no OU or in the 'Computers' container, directly 
-  under the domain root, or for importing objects as-is.
+  Special options allow for placing users/groups/computers with no OU or in the 
+  "default" container defined in AD ('CN=Users', 'CN=Computers'), directly under the 
+  domain root, or for importing objects as-is.
   
-  Version: 0.9.7-h (+ computer import)
+  Version: 1.0.0
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -362,7 +362,7 @@ begin {
                 Write-Host $msg -ForegroundColor Red
                 Write-Log $msg
                 throw $msg
-             }
+            }
           # Write-Log "debug :: Normalized TrimOU: $($TrimOUList -join ',')"
         }
     }
