@@ -511,7 +511,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
     function Get-NewDN {
         param (
             [string]$originalDN,
-            [string]$DNPath
+            [string]$DNPath,
             [string]$DefaultContainer = $DefaultContainerName
         )
 
@@ -526,7 +526,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath -DefaultContainer $DefaultContainer
 
         if ($cnPart) {
-            Write-Log "debug :: Get-NewDN : return ${cnPart},$ouPath"
+           # Write-Log "debug :: Get-NewDN : return ${cnPart},$ouPath"
             return "${cnPart},$ouPath"
         } else {
             Write-Log "Warning: Get-NewDN : originalDN has no CN part"
@@ -555,7 +555,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
 
         # --- 2. Remove the deepest OUs from ouParts array according to '-TrimOU' argument ---
       # Write-Log "debug :: ConvertDNBase :: original oldDN: '$oldDN'"
-        Write-Log "debug :: ConvertDNBase :: original ouParts: $($ouParts -join '|')"
+      # Write-Log "debug :: ConvertDNBase :: original ouParts: $($ouParts -join '|')"
         if ($ouParts.Count -gt 0 -and $ouParts[0].Length -le 2) {
             Write-Log "Error: Detected malformed ouParts: $($ouParts -join '|')"
             throw "TrimOU error: ouParts appears malformed (likely split into characters). Check your CSV DN format and delimiter."
