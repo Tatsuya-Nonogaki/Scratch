@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-e (+ computer import)
+  Version: 0.9.7-f (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -512,7 +512,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         param (
             [string]$originalDN,
             [string]$DNPath
-+            [string]$DefaultContainer = $DefaultContainerName
+            [string]$DefaultContainer = $DefaultContainerName
         )
 
         if (-not $originalDN) {
@@ -523,7 +523,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
             $cnPart = $matches[1]
         }
         $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath
-+        $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath -DefaultContainer $DefaultContainer
+        $ouPath = ConvertDNBase -oldDN $originalDN -newDNPath $DNPath -DefaultContainer $DefaultContainer
 
         if ($cnPart) {
             Write-Log "debug :: Get-NewDN : return ${cnPart},$ouPath"
@@ -539,7 +539,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         param (
             [string]$oldDN,
             [string]$newDNPath,
-+            [string]$DefaultContainer = $DefaultContainerName,
+            [string]$DefaultContainer = $DefaultContainerName,
             [switch]$CreateOUIfNotExists
         )
 
@@ -624,13 +624,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
         }
 
         # --- 3-B. In case no OUs remain: only CN and DC ---
-        $isDefaultContainer = $oldDN -match "^CN=.*?,CN=$($DefaultContainerName),DC="
-        # Above leverages subexpression expansion "$($var)". If it fails, use the safest below 
-        #if ($computerMode) {
-        #    $isDefaultContainer = $oldDN -match "^CN=.*?,CN=Computers,DC="
-        #} else {
-        #    $isDefaultContainer = $oldDN -match "^CN=.*?,CN=Users,DC="
-        #}
+        $isDefaultContainer = $oldDN -match "^CN=.*?,CN=$($DefaultContainer),DC="
         $importBaseHasOU = $newDNPath -match '^OU='
 
         if ($NoDefaultContainer) {
@@ -644,18 +638,18 @@ Review your CSV. To override this check, use -NoClassCheck.)
                 if ($importBaseHasOU) {
                     return $newDNPath
                 } else {
-                    return "CN=$DefaultContainerName," + $baseDC
+                    return "CN=$DefaultContainer," + $baseDC
                 }
             } else {
                 return $newDNPath
             }
         }
         else {
-            # Default: If import base has OU, place in that OU; else, in CN=DefaultContainerName
+            # Default: If import base has OU, place in that OU; else, in CN=DefaultContainer
             if ($importBaseHasOU) {
                 return $newDNPath
             } else {
-                return "CN=$DefaultContainerName," + $baseDC
+                return "CN=$DefaultContainer," + $baseDC
             }
         }
     }
@@ -1070,7 +1064,11 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     Write-Log "Processing computer sAMAccountName=`"$sAMAccountName`""
 
                     $ouPath = ConvertDNBase -oldDN $comp.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
-                    $managedByDN = if ($comp.ManagedBy -ne "") { Get-NewDN -originalDN $comp.ManagedBy -DNPath $DNPath } else { $null }
+                    $managedByDN = if ($comp.ManagedBy -ne "") {
+                          Get-NewDN -originalDN $comp.ManagedBy -DNPath $DNPath -DefaultContainer (Get-DefaultContainerName -Want "User")
+                      } else {
+                          $null
+                    }
 
                     $newComputerParams = @{
                         Name           = $comp.Name
