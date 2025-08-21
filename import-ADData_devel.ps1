@@ -11,7 +11,7 @@
   container, or computers with no OU or in the 'Computers' container, directly 
   under the domain root, or for importing objects as-is.
   
-  Version: 0.9.7-f (+ computer import)
+  Version: 0.9.7-g (+ computer import)
 
  .PARAMETER DNPath
   (Alias -p) Mandatory. Mutually exclusive with -DNPrefix and -DCDepth.
@@ -704,14 +704,10 @@ Review your CSV. To override this check, use -NoClassCheck.)
                     $ouPath = ConvertDNBase -oldDN $usr.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
                     $managerDN = if ($usr.Manager -ne "") { Get-NewDN -originalDN $usr.Manager -DNPath $DNPath } else { $null }
 
+                    # Set only required properties for 'New-ADUser' here; move all others to '$additionalProperties'
                     $newUserParams = @{
                         Name           = $usr.Name
-                        DisplayName    = $usr.DisplayName
                         SamAccountName = $sAMAccountName
-                        Description    = $usr.Description
-                        GivenName      = $usr.GivenName
-                        Surname        = $usr.Surname
-                        Manager        = $managerDN
                     }
 
                     Try {
@@ -739,6 +735,11 @@ Review your CSV. To override this check, use -NoClassCheck.)
 
                     # Set additional properties using Set-ADUser
                     $additionalProperties = @{
+                        DisplayName      = $usr.DisplayName
+                        Description      = $usr.Description
+                        GivenName        = $usr.GivenName
+                        Surname          = $usr.Surname
+                        Manager          = $managerDN
                         ProfilePath      = $usr.ProfilePath
                         ScriptPath       = $usr.ScriptPath
                         Company          = $usr.Company
@@ -756,6 +757,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         HomePhone        = $usr.HomePhone
                         Fax              = $usr.Fax
                         Pager            = $usr.Pager
+                        # Define other properties here if needed
                     }
 
                     foreach ($property in $additionalProperties.Keys) {
@@ -770,7 +772,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                                 Write-Log "Property $property set for user: sAMAccountName=$sAMAccountName"
                             } Catch {
                                 Write-Host "Warning: Failed to set property $property for user ${sAMAccountName}" -ForegroundColor Yellow
-                                Write-Log "Failed to set property $property for user: sAMAccountName=$sAMAccountName - $_"
+                                Write-Log "Failed to set property $property for user: sAMAccountName=$sAMAccountName, ${property}='$($additionalProperties[$property])' - $_"
                             }
                         }
                     }
@@ -963,13 +965,12 @@ Review your CSV. To override this check, use -NoClassCheck.)
 
                     $ouPath = ConvertDNBase -oldDN $grp.DistinguishedName -newDNPath $DNPath -CreateOUIfNotExists
 
+                    # Set only required properties for 'New-ADGroup' here; move all others to '$additionalProperties'
                     $newGroupParams = @{
-                        Name           = $grp.Name    # or $grp.CN
+                        Name           = $grp.Name       # or $grp.CN
                         SamAccountName = $sAMAccountName
-                        Description    = $grp.Description
-                        GroupCategory  = "Security" # modified later if necessary
-                        GroupScope     = "Global"   # modified later if necessary
-                        # Define other properties here if needed
+                        GroupCategory  = "Security"      # modified later if necessary
+                        GroupScope     = "Global"        # modified later if necessary
                     }
 
                     # Determine GroupCategory based on CSV values
@@ -1009,6 +1010,30 @@ Review your CSV. To override this check, use -NoClassCheck.)
                         Write-Host "Group creation failed for ${sAMAccountName}; skipping further property setting." -ForegroundColor Red
                         Write-Log "Group creation failed for sAMAccountName=${sAMAccountName}; skipping further property setting."
                         continue
+                    }
+
+                    # Set additional properties using Set-ADGroup
+                    $additionalProperties = @{
+                        Description    = $grp.Description
+                        # DON'T include "ManagedBy". It is registered separately in '-FixGroup' mode run of this script.
+                        # Define other properties here if needed
+                    }
+
+                    foreach ($property in $additionalProperties.Keys) {
+                        if ($additionalProperties[$property] -ne $null -and $additionalProperties[$property] -ne "") {
+                            $params = @{
+                                Identity = $sAMAccountName
+                            }
+                            $params[$property] = $additionalProperties[$property]
+                            Try {
+                                Set-ADGroup @params
+                                Write-Host "  => Property $property set for group: $sAMAccountName"
+                                Write-Log "Property $property set for group: sAMAccountName=$sAMAccountName"
+                            } Catch {
+                                Write-Host "Warning: Failed to set property $property for group ${sAMAccountName}" -ForegroundColor Yellow
+                                Write-Log "Failed to set property $property for group: sAMAccountName=$sAMAccountName, ${property}='$($additionalProperties[$property])' - $_"
+                            }
+                        }
                     }
 
                     # Add this group to parent groups
@@ -1070,11 +1095,10 @@ Review your CSV. To override this check, use -NoClassCheck.)
                           $null
                     }
 
+                    # Set only required properties for 'New-ADComputer' here; move all others to '$additionalProperties'
                     $newComputerParams = @{
                         Name           = $comp.Name
                         SamAccountName = $sAMAccountName
-                        Description    = $comp.Description
-                        Location       = $comp.Location
                     }
 
                     Try {
@@ -1102,10 +1126,13 @@ Review your CSV. To override this check, use -NoClassCheck.)
 
                     # Set additional properties using Set-ADComputer
                     $additionalProperties = @{
+                        Description            = $comp.Description
+                        Location               = $comp.Location
                         ManagedBy              = $managedByDN
                         OperatingSystem        = $comp.OperatingSystem        # Will be overwritten on actual computer join
                         OperatingSystemVersion = $comp.OperatingSystemVersion # Will be overwritten on actual computer join
                         DNSHostName            = $comp.DNSHostName            # Will be overwritten on actual computer join
+                        # Define other properties here if needed
                     }
 
                     foreach ($property in $additionalProperties.Keys) {
@@ -1120,7 +1147,7 @@ Review your CSV. To override this check, use -NoClassCheck.)
                                 Write-Log "Property $property set for computer: sAMAccountName=$sAMAccountName"
                             } Catch {
                                 Write-Host "Warning: Failed to set property $property for computer ${sAMAccountName}" -ForegroundColor Yellow
-                                Write-Log "Failed to set property $property for computer: sAMAccountName=$sAMAccountName - $_"
+                                Write-Log "Failed to set property $property for computer: sAMAccountName=$sAMAccountName, ${property}='$($additionalProperties[$property])' - $_"
                             }
                         }
                     }
