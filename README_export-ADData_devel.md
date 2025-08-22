@@ -72,7 +72,7 @@ Exports users, groups, and computers from Active Directory to CSV files using a 
 | `-Computer`           | `-comp`   | No       | Export Computers only. Users and Groups are not processed.                                            |
 | `-ExcludeSystemObject`| `-nosys`  | No       | Exclude system users/groups from export.                                                              |
 
-> \*Either `-DNPath` or `-DNPrefix` is required. They are mutually exclusive.
+> \* Either `-DNPath` or `-DNPrefix` is required. They are mutually exclusive.
 
 #### Usage Examples
 
