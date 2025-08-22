@@ -4,10 +4,16 @@
 
 export-ADData is a flexible PowerShell toolkit for exporting and importing Active Directory users and groups. Easily convert AD data to CSV and back, with advanced import features for cross-domain migration, OU reorganization, granular mapping, and robust validation. Ideal for admins managing AD at scale.
 
-- **`export-ADData`**: Export Active Directory (AD) users and groups to CSV files with flexible options.
+- **`export-ADData`**: Export Active Directory (AD) users, groups, and computers to CSV files with flexible options.
 - **`import-ADData`**: Import AD users and groups from CSV files, supporting migration, OU reorganization, cross-domain moves, flattening, and detailed mapping.
 - **`compare-ADCSV`**: Compare two AD export CSVs for verification.
 - **`check-ADUserPassword`**: Check AD user password validity.
+
+### 📢 Stay Updated!
+**Want to know when this project is updated?**  
+Subscribe to the commit feed (no login required):  
+[![RSS](https://img.shields.io/badge/rss-commits-orange)](https://github.com/Tatsuya-Nonogaki/export-ADData/commits/main.atom)  
+<sub>Paste the above link into your favorite RSS reader to get notified of new commits!</sub>
 
 ---
 
@@ -28,10 +34,12 @@ There are four major strategies for combining export and import:
    Allocate the users/groups onto a new domain basis, translating the domain naming, respecting hierarchies.
 
 3. **Export specifying "DC=domain,DC=local" and import to "OU=osaka,DC=domain,DC=local"**  
-   Whole migration from the domain basis to a new specific OU, along with all intermediate OUs the users/groups depend on. In this case, users under CN=Users container are created just under OU=osaka because it is impossible to create "Users" container nor OU=Users under the OU. Specifying "newdomain" is also a viable choice, which is like a move to a different floor of a different building.
+   Whole migration from the domain basis to a new specific OU, along with all intermediate OUs the users/groups depend on. In this case, users under CN=Users container are created just under OU=osaka because it is impossible to create `Users` container nor OU=Users under the OU. Specifying "newdomain" is also a viable choice, which is like a move to a different floor of a different building.
 
 4. **Export specifying "OU=sales,DC=domain,DC=local" and import to "DC=domain,DC=local" with `-TrimOU sales`**  
    Useful for flattening part of the OU hierarchy. By exporting from a specific OU and importing to the domain root with `-TrimOU`, you can migrate only the objects under that OU directly to the root (or another OU), effectively removing their original OU nesting.
+
+> More advanced use is possible. For example, if you export from "OU=sales,DC=domain,DC=local", and import into "OU=marketing,DC=domain,DC=local" with the `-TrimOU "sales"` option, you can effectively move objects from the "sales" OU to the "marketing" OU in a two-step process—without manually editing every DN in the exported CSV data.
 
 > See [HOWTO_prepare_CSV_data.md](docs/HOWTO_prepare_CSV_data.md) for a step-by-step guide on preparing CSV files for import/export.
 
@@ -43,11 +51,12 @@ There are four major strategies for combining export and import:
 
 #### Overview
 
-Exports users and groups from Active Directory to CSV files using a specified domain or OU as the starting point.
+Exports users, groups, and computers from Active Directory to CSV files using a specified domain or OU as the starting point.
 
 #### Key Features
 
 - Export AD Users and Groups to a pair of CSV files.
+- Optionally export AD Computers to a CSV file.
 - Possible to exclude system objects from output.
 - Supports specifying the export base via Distinguished Name (`-DNPath`) or dotted prefix (`-DNPrefix`).
 - Flexible output path selection.
@@ -60,6 +69,7 @@ Exports users and groups from Active Directory to CSV files using a specified do
 | `-DNPrefix`           | `-d`      | Yes\*    | Alternative to `-DNPath`. Dotted format (e.g., `unit.domain.local`).                                  |
 | `-DCDepth`            |           | No       | Depth of DC components in `-DNPrefix` (default: 2).                                                   |
 | `-OutPath`            | `-o`      | No       | Folder path for output CSVs. Dialog prompts if omitted.                                               |
+| `-Computer`           | `-comp`   | No       | Export Computers only. Users and Groups are not processed.                                            |
 | `-ExcludeSystemObject`| `-nosys`  | No       | Exclude system users/groups from export.                                                              |
 
 > \*Either `-DNPath` or `-DNPrefix` is required. They are mutually exclusive.
@@ -67,11 +77,14 @@ Exports users and groups from Active Directory to CSV files using a specified do
 #### Usage Examples
 
 ```powershell
-# Export AD Users and Groups from the Domain basis to CSV files in "C:\ADExport"
-.\export-ADData.ps1 -DNPath "DC=mydomain,DC=local" -OutPath "C:\ADExport"
+# Export AD Users and Groups from the Domain root to CSV files in "C:\ADExport", excluding system objects
+.\export-ADData.ps1 -DNPath "DC=mydomain,DC=local" -OutPath "C:\ADExport" -ExcludeSystemObject
 
-# Export AD Users and Groups using DNPrefix (not recommended for accuracy)
-.\export-ADData.ps1 -DNPrefix "unit.mydomain.local" -OutPath "C:\ADExport"
+# Export AD Users and Groups, specifying a specific hierarchy base.
+.\export-ADData.ps1 -DNPath "OU=unit,DC=mydomain,DC=local" -OutPath "C:\ADExport"
+
+# Export AD Computers from the domain root, making the script prompt for output folder via dialog
+.\export-ADData.ps1 -DNPath "DC=mydomain,DC=local" -Computer
 ```
 
 ---
@@ -93,7 +106,7 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 - Never overwrite existing Users/Groups. Warn and skip in each case.
 - Option to disable "protect from accidental deletion" for newly created OUs, useful for pre-validation etc.
 - Supports registering user passwords if provided in the CSV.
-- Advanced features for OU trimming and control over Users container placement (`-TrimOU`, `-NoUsersContainer`, `-NoForceUsersContainer`).
+- Advanced features for OU trimming and control over `Users` container placement (`-TrimOU`, `-NoUsersContainer`, `-NoForceUsersContainer`).
 - Mode vs file mismatch detection: Warns and prompts if the selected CSV file suggests a mismatch with the chosen import mode (e.g., a group import with a user data file), helping avoid accidental mis-imports. Contents check can be bypassed with `-NoClassCheck` switch for more flexible or advanced import scenarios.
 
 #### Parameters
@@ -113,8 +126,8 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 | `-NewUPNSuffix`           |         | No       | New suffix for UserPrincipalName. Defaults to value derived from `-DNPath`.                           |
 | `-NoProtectNewOU`         |         | No       | Newly created OUs will not be protected from accidental deletion.                                     |
 | `-TrimOU`                 |         | No       | Remove one or more rightmost (nearest the domain root) OUs from source DNs before import.             |
-| `-NoUsersContainer`       |         | No       | Place users/groups with no OU or in Users container directly under the domain root instead of `CN=Users,DC=...`.            |
-| `-NoForceUsersContainer`  |         | No       | Import objects as their DN dictates: if the DN is directly under the domain root, import as is; if under Users container, import as is. Mutually exclusive with `-NoUsersContainer`. |
+| `-NoUsersContainer`       |         | No       | Place users/groups with no OU or in `Users` container directly under the domain root instead of `CN=Users,DC=...`.            |
+| `-NoForceUsersContainer`  |         | No       | Import objects as their DN dictates: if the DN is directly under the domain root, import as is; if under `Users` container, import as is. Mutually exclusive with `-NoUsersContainer`. |
 
 > \*Either `-DNPath` or `-DNPrefix` is required. They are mutually exclusive.
 
@@ -135,7 +148,7 @@ Imports AD users and groups from CSV files, supporting domain migration, OU reor
 
 ##### -TrimOU
 
-Allows you to remove one or more OUs from the end (domain-root side) of the DistinguishedName of imported objects. The argument must be a comma-separated list of OU names (without the `OU=` prefix).
+Allows you to remove one or more OUs from the end (domain-root side) of the DistinguishedName of objects to be imported. The argument must be a comma-separated list of OU names (without the `OU=` prefix).
 
 ```powershell
 -TrimOU "deeper,sales"
@@ -168,11 +181,13 @@ This example trims `OU=sales` first, then `OU=deeper`, from the **rightmost** OU
 
 ##### -NoUsersContainer and -NoForceUsersContainer
 
-By default, user or group objects imported directly under the domain root (with no OU) are placed in the domain's default container (`CN=Users,DC=...`).  
+By default, users and groups that would otherwise be created directly under the domain root are placed in the domain's default container (`CN=Users,DC=...`).  
 If you specify `-NoUsersContainer`, such objects are instead created directly under the domain root (`DC=...`).  
 If you specify `-NoForceUsersContainer`, objects are imported exactly as their DN dictates:  
 - If the DN was originally directly under the domain root, it is imported there.
-- If the DN was originally under the Users container, it remains in Users.
+- If the DN was originally under the `Users` container, it remains in `Users`.
+
+This behavior also applies in cases where the resulting DN path ends up directly under the domain root, such as when all OUs are removed from an object's original DN by the `-TrimOU` option.
 
 **Precautions:**
 - These parameters are **mutually exclusive**; you must specify only one or neither.
@@ -190,7 +205,7 @@ If the password is absent for a user, the account will be created but remain dis
 
 ##### Controlling the "User must change password at next logon" flag
 
-You have two options to control the "User must change password at next logon" (`ChangePasswordAtLogon`) setting for imported users:
+You have two options to control the "User must change password at next logon" (`ChangePasswordAtLogon`) setting for users to be imported:
 
 - **Via a dedicated CSV column:**  
   Add a `"ChangePasswordAtLogon"` column to your User CSV.  
