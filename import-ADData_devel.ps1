@@ -129,8 +129,8 @@
   # NOTE: You must create the *base* OU "osaka" in the destination AD before running the import, if it does not already exist.
 
  .EXAMPLE
-  # Import AD Users and Groups, using default (safe) policy: OU objects without OU go onto CN=Users
-  .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -UserFile "Users.csv" -GroupFile "Groups.csv"
+  # Import AD Computers from CSV
+  .\import-ADData.ps1 -DNPath "DC=domain,DC=local" -ComputerFile "C:\Exp\Computers_olddomain_local.csv"
 
  .EXAMPLE
   # Import users, trimming OUs "deeper" and "sales" from the domain-root side.
