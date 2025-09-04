@@ -118,6 +118,39 @@ semodule -lfull | grep myhttpd_wls_type
 
 ---
 
+## Create a Domain Type Module for Your Custom Executable here, if the Domain Type is your own `mysvcd_t` instead of predefined `httpd_t`
+
+### File: `mysvcd.te`
+```te
+module mysvcd 1.0;
+
+require {
+    type httpd_wls_port_t;
+    class tcp_socket name_connect;
+}
+
+type mysvcd_t;
+allow mysvcd_t httpd_wls_port_t:tcp_socket name_connect;
+```
+
+### Build and Install Domain Module
+
+```bash
+checkmodule -M -m -o mysvcd.mod mysvcd.te
+semodule_package -o mysvcd.pp -m mysvcd.mod
+semodule -i mysvcd.pp
+semodule -lfull | grep mysvcd
+```
+
+### Label Your Binary
+
+```bash
+semanage fcontext -a -t mysvcd_t "/opt/mypkg/mysvcd"
+restorecon -v /opt/mypkg/mysvcd
+```
+
+---
+
 ## Create the Main Module
 
 ### File: `myhttpd_mod_wl.te` (Simple)
@@ -150,6 +183,21 @@ require {
 
 allow httpd_t httpd_wls_port_t:tcp_socket name_connect;
 allow httpd_t afs3_callback_port_t:tcp_socket name_connect;
+```
+
+### Or.. if the Domain Type is your own `mysvcd_t`, File: `myhttpd_mod_wl.te` is like this
+> Using the same module name though it should be e.g., `mysvcd_mod_wl` in this case, to simplify the subsequent explanation.
+
+```te
+module myhttpd_mod_wl 1.0;
+
+require {
+    type mysvcd_t;
+    type httpd_wls_port_t;
+    class tcp_socket name_connect;
+}
+
+allow mysvcd_t httpd_wls_port_t:tcp_socket name_connect;
 ```
 
 ---
