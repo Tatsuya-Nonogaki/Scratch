@@ -266,9 +266,9 @@ restorecon -Rv /var/log/mypkg/ /var/cache/mypkg/ /var/lib/mypkg/
 
 ---
 
-## Create the Main Module
+### Create the Main Module
 
-### File: `myhttpd_mod_wl.te` (Simple)
+#### File: `myhttpd_mod_wl.te` (Simple)
 
 ```te
 module myhttpd_mod_wl 1.0;
@@ -284,7 +284,7 @@ allow httpd_t httpd_wls_port_t:tcp_socket name_connect;
 
 Or..
 
-### File: `myhttpd_mod_wl.te` (Includes Predefined Label)
+#### File: `myhttpd_mod_wl.te` (Includes Predefined Label)
 
 ```te
 module myhttpd_mod_wl 1.0;
@@ -300,7 +300,7 @@ allow httpd_t httpd_wls_port_t:tcp_socket name_connect;
 allow httpd_t afs3_callback_port_t:tcp_socket name_connect;
 ```
 
-### Or.. if the Domain Type is your own `mysvcd_t`, File: `myhttpd_mod_wl.te` is like this
+#### Or.. if the Domain Type is your own `mysvcd_t`, File: `myhttpd_mod_wl.te` is like this
 > Using the same module name though it should be e.g., `mysvcd_mod_wl` in this case, to simplify the subsequent explanation.
 
 ```te
