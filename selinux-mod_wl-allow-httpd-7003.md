@@ -34,7 +34,7 @@ ausearch -m AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR | grep 'comm="http'
 
 ---
 
-## Automatic Way (Moderate Security - All `unreserved_ports` Are Allowed from httpd)
+## Customize the Policy —Automatic Way (Moderate Security - All `unreserved_ports` Are Allowed from httpd)
 
 ### Preview the Resultant Rule
 
@@ -52,7 +52,7 @@ Then continue to [SE Module Build and Install (Common)](#se-module-build-and-ins
 
 ---
 
-## Controlled Way (More Secure)
+## Customize the Policy —Controlled Way (More Secure)
 
 ### Check if Port 7003 is Assigned
 
@@ -68,7 +68,7 @@ afs_pt_port_t                  tcp      7002
 gatekeeper_port_t              tcp      1721, 7000
 ```
 
-### Check for Multiple Ports or Ranges (See also [Tips: Expand Port Ranges](#tips-expand-port-ranges))
+**Check for Multiple Ports or Ranges (See also [Tips: Expand Port Ranges](#tips-expand-port-ranges))**
 
 ```bash
 echo $(semanage port -l | awk '$1=="afs3_callback_port_t" && $2=="tcp" {$1=$2=""; print $0}')
@@ -130,8 +130,6 @@ mkdir -p myhttpd_mod_wl
 cd myhttpd_mod_wl
 ```
 
----
-
 ### Create a Port Type Module
 
 #### File: `myhttpd_wls_type.te`
@@ -158,8 +156,6 @@ semodule_package -o myhttpd_wls_type.pp -m myhttpd_wls_type.mod
 semodule -i myhttpd_wls_type.pp
 semodule -lfull | grep myhttpd_wls_type
 ```
-
----
 
 ### Create a Domain Type Module for Your Custom Executable here, if the Domain Type is your own `mysvcd_t` instead of predefined `httpd_t`
 
