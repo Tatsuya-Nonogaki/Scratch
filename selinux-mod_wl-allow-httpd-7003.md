@@ -52,7 +52,7 @@ Then continue to [SE Module Build and Install (Common)](#se-module-build-and-ins
 semanage port -l | grep -w '700[0-9]' | grep tcp
 ```
 
-Example:
+Example output:
 
 ```
 afs3_callback_port_t           tcp      7001
