@@ -340,7 +340,7 @@ semanage port -a -t httpd_wls_port_t -p tcp 7003
 semanage port -a -t httpd_wls_port_t -p tcp 7005
 ```
 
-### Verify Assignment
+**Verify Assignment**
 
 ```bash
 echo $(semanage port -l | awk '$1=="httpd_wls_port_t" && $2=="tcp" {$1=$2=""; print $0}')
