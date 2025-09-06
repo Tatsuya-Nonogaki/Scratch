@@ -188,6 +188,8 @@ restorecon -Rv /opt/mypkg/
 
 If your service needs to read/write other directories—such as `/var/log/mypkg/`, `/var/cache/mypkg/`, `/var/lib/mypkg/`, or `/var/tmp/mypkg/`—it is best practice to manage these in a separate TE module for modularity and future flexibility.
 
+> In this example, we define a _catch-all_ type `mysvcd_var_t`. If your service require more strict separation of logs, cache, lib, etc., you can easily split into more granular types (e.g., `mysvcd_var_cache_t`, `mysvcd_var_lib_t`, etc.).
+
 #### Example TE policy for `/var/log/mypkg/`:
 
 ```te
@@ -199,21 +201,21 @@ require {
     class file { read write append open create unlink };
 }
 
-type mysvcd_var_log_t;
-files_type(mysvcd_var_log_t)
+type mysvcd_var_t;
+files_type(mysvcd_var_t)
 
-allow mysvcd_t mysvcd_var_log_t:dir { read search write add_name remove_name };
-allow mysvcd_t mysvcd_var_log_t:file { read write append open create unlink };
+allow mysvcd_t mysvcd_var_t:dir { read search write add_name remove_name };
+allow mysvcd_t mysvcd_var_t:file { read write append open create unlink };
 ```
 
 #### Example labeling and restorecon commands:
 
 ```bash
-semanage fcontext -a -t mysvcd_var_log_t "/var/log/mypkg(/.*)?"
-restorecon -Rv /var/log/mypkg/
+semanage fcontext -a -t mysvcd_var_t "/var/log/mypkg(/.*)?"
+semanage fcontext -a -t mysvcd_var_t "/var/cache/mypkg(/.*)?"
+semanage fcontext -a -t mysvcd_var_t "/var/lib/mypkg(/.*)?"
+restorecon -Rv /var/log/mypkg/ /var/cache/mypkg/ /var/lib/mypkg/
 ```
-
-> Repeat the above for other directories as needed, using distinct types (e.g., `mysvcd_var_cache_t`, `mysvcd_var_lib_t`, etc.).
 
 **You can build, install, and update these modules independently as your package requirements evolve.**
 
