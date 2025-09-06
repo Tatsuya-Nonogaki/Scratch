@@ -56,7 +56,7 @@ Then continue to [SE Module Build and Install (Common)](#se-module-build-and-ins
 
 ---
 
-## Customize the Policy —Controlled Way (More Secure)
+## Customize the Policy —Organized Way (More Secure)
 
 ### Check if Port 7003 is Assigned
 
