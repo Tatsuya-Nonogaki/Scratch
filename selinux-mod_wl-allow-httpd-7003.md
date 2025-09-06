@@ -14,14 +14,22 @@ dnf install setools-console
 
 ## See What Is Going On
 
+Search SELinux denials for a specific process name. Use the exact name of the executable with `-c` (`--comm`)—no partial match:
+
 ```bash
-ausearch -c http
+ausearch -m AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR -c httpd
 ```
 
 Example output:
 
 ```
 type=AVC msg=audit(1752813896.450:64983): avc:  denied  { name_connect } for  pid=2766333 comm="httpd" dest=7003 scontext=system_u:system_r:httpd_t:s0 tcontext=system_u:object_r:unreserved_port_t:s0 tclass=tcp_socket permissive=0
+```
+
+If you want to find denials for any command starting with `http`, omit `-c` and filter with `grep`:
+
+```bash
+ausearch -m AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR | grep 'comm="http'
 ```
 
 ---
