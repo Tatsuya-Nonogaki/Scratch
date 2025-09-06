@@ -92,7 +92,7 @@ cd myhttpd_mod_wl
 
 ---
 
-## Create a Port Type Module (Use Underscores in Names)
+## Create a Port Type Module
 
 ### File: `myhttpd_wls_type.te`
 
@@ -106,6 +106,9 @@ require {
 type httpd_wls_port_t;
 typeattribute httpd_wls_port_t port_type;
 ```
+
+> **Use Underscores in Names!**  
+> Avoid using dashes (`-`), dots (`.`), or other punctuation for word separation in SELinux type names. These characters can prevent SELinux policies from working properly or may cause errors during policy compilation.
 
 ### Build and Install Port-Type Module
 
@@ -188,9 +191,9 @@ restorecon -Rv /opt/mypkg/
 
 If your service needs to read/write other directories—such as `/var/log/mypkg/`, `/var/cache/mypkg/`, `/var/lib/mypkg/`, or `/var/tmp/mypkg/`—it is best practice to manage these in a separate TE module for modularity and future flexibility.
 
-> In this example, we define a _catch-all_ type `mysvcd_var_t`. If your service require more strict separation of logs, cache, lib, etc., you can easily split into more granular types (e.g., `mysvcd_var_cache_t`, `mysvcd_var_lib_t`, etc.).
+> In this example, we define a _catch-all_ type `mysvcd_var_t`. If your service requires more strict separation of log, cache, lib, etc., you can easily split into more granular types (e.g., `mysvcd_var_log_t`, `mysvcd_var_cache_t`, etc.).
 
-#### Example TE policy for `/var/log/mypkg/`:
+#### Example TE policy for variable data directory:
 
 ```te
 # File: mysvcd_storage.te
@@ -201,9 +204,11 @@ require {
     class file { read write append open create unlink };
 }
 
+# Repeat this pair of definition for each more granular type if required
 type mysvcd_var_t;
 files_type(mysvcd_var_t)
 
+# Repeat this pair of definition for each more granular type if required
 allow mysvcd_t mysvcd_var_t:dir { read search write add_name remove_name };
 allow mysvcd_t mysvcd_var_t:file { read write append open create unlink };
 ```
