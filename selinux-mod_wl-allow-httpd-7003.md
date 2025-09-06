@@ -120,20 +120,40 @@ semodule -lfull | grep myhttpd_wls_type
 
 ## Create a Domain Type Module for Your Custom Executable here, if the Domain Type is your own `mysvcd_t` instead of predefined `httpd_t`
 
-### File: `mysvcd.te`
+### 1. Define Exec Type and Domain Type, with Transition for systemd
+
+#### File: `mysvcd.te`
 ```te
 module mysvcd 1.0;
 
 require {
+    type systemd_t;
+    type mysvcd_t;
+    type mysvcd_exec_t;
     type httpd_wls_port_t;
     class tcp_socket name_connect;
+    class process transition;
+    class file { execute read open };
 }
 
+# Define the domain type for your daemon
 type mysvcd_t;
+
+# Define the exec type for your binary
+type mysvcd_exec_t;
+files_type(mysvcd_exec_t)
+
+# Allow systemd to read/open/execute your binary
+allow systemd_t mysvcd_exec_t:file { read open execute };
+
+# Transition: When systemd_t executes mysvcd_exec_t, the process transitions to mysvcd_t
+type_transition systemd_t mysvcd_exec_t:process mysvcd_t;
+
+# Allow your service domain to connect to the custom port type
 allow mysvcd_t httpd_wls_port_t:tcp_socket name_connect;
 ```
 
-### Build and Install Domain Module
+### 2. Build and Install Domain Module
 
 ```bash
 checkmodule -M -m -o mysvcd.mod mysvcd.te
@@ -142,10 +162,10 @@ semodule -i mysvcd.pp
 semodule -lfull | grep mysvcd
 ```
 
-### Label Your Binary
+### 3. Label Your Binary with the Exec Type
 
 ```bash
-semanage fcontext -a -t mysvcd_t "/opt/mypkg/mysvcd"
+semanage fcontext -a -t mysvcd_exec_t "/opt/mypkg/mysvcd"
 restorecon -v /opt/mypkg/mysvcd
 ```
 
@@ -236,10 +256,21 @@ echo $(semanage port -l | awk '$1=="httpd_wls_port_t" && $2=="tcp" {$1=$2=""; pr
 
 ---
 
+## Start and Verify with systemd (in the case of your own domain type `mysvcd_t`)
+
+Start your service via systemd, and check the running process label:
+
+```bash
+systemctl start mysvcd.service
+ps -Z -C mysvcd
+```
+You should see `mysvcd_t` in the process label.
+
+---
+
 ## Uninstall the Module (if you ought to do in the future...)
 
 ```bash
 semodule -r myhttpd_mod_wl
 semodule -lfull | grep myhttpd_mod_wl
 ```
-
