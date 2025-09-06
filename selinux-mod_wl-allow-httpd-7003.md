@@ -76,13 +76,14 @@ echo $(semanage port -l | awk '$1=="afs3_callback_port_t" && $2=="tcp" {$1=$2=""
 
 ### ⚠️ Safety Check Before Deleting Port Assignment
 
-**Never delete a port assignment unless you are certain it is not required by any running service or SELinux policy.  
-Follow these steps before deleting:**
+If you need to assign a custom SELinux port type label to a port that is already associated with another type, you must first delete the existing assignment. **However, never delete a port assignment unless you are certain it is not required by any running service or SELinux policy.**
+
+Follow these steps before deleting:
 
 1. **Find the SELinux type mapped to the port (7003/TCP for example):**
     ```bash
     semanage port -l | grep -w '7003' | grep tcp
-    # Note the SELinux type in the first column
+    # Note the SELinux type in the first column of the output.
     ```
 
 2. **Check which SELinux domains are allowed to use this type:**
@@ -108,7 +109,7 @@ If you have confirmed the port is not in use:
 semanage port -d -p tcp 7003
 ```
 
-> Otherwise, reuse an appropriate predefined label.
+**Otherwise, reuse the predefined label.**
 
 ---
 
