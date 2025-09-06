@@ -2,6 +2,8 @@
 **Also refers to the case where the service is your own, not `httpd`.  
 This document provides practical, adaptable steps for customizing SELinux policy to securely enable network and file access for any system service.**
 
+---
+
 ## Install Prerequisite Packages (RHEL9)
 
 ```bash
@@ -121,7 +123,7 @@ done
 
 ---
 
-## Prepare Module Directory
+### Prepare Module Directory
 
 ```bash
 mkdir -p myhttpd_mod_wl
@@ -130,9 +132,9 @@ cd myhttpd_mod_wl
 
 ---
 
-## Create a Port Type Module
+### Create a Port Type Module
 
-### File: `myhttpd_wls_type.te`
+#### File: `myhttpd_wls_type.te`
 
 ```te
 module myhttpd_wls_type 1.0;
@@ -148,7 +150,7 @@ typeattribute httpd_wls_port_t port_type;
 > **Use Underscores in Names!**  
 > Avoid using dashes (`-`), dots (`.`), or other punctuation for word separation in SELinux type names. These characters can prevent SELinux policies from working properly or may cause errors during policy compilation.
 
-### Build and Install Port-Type Module
+#### Build and Install Port-Type Module
 
 ```bash
 checkmodule -M -m -o myhttpd_wls_type.mod myhttpd_wls_type.te
@@ -159,11 +161,11 @@ semodule -lfull | grep myhttpd_wls_type
 
 ---
 
-## Create a Domain Type Module for Your Custom Executable here, if the Domain Type is your own `mysvcd_t` instead of predefined `httpd_t`
+### Create a Domain Type Module for Your Custom Executable here, if the Domain Type is your own `mysvcd_t` instead of predefined `httpd_t`
 
-### 1. Define Exec Type and Domain Type, with Transition for systemd
+#### 1. Define Exec Type and Domain Type, with Transition for systemd
 
-#### File: `mysvcd.te`
+**File: `mysvcd.te`**
 ```te
 module mysvcd 1.0;
 
@@ -204,7 +206,7 @@ allow mysvcd_t mysvcd_opt_t:dir { read search write add_name remove_name };
 allow mysvcd_t mysvcd_opt_t:file { read write append open create unlink };
 ```
 
-### 2. Build and Install Domain Module
+#### 2. Build and Install Domain Module
 
 ```bash
 checkmodule -M -m -o mysvcd.mod mysvcd.te
@@ -213,7 +215,7 @@ semodule -i mysvcd.pp
 semodule -lfull | grep mysvcd
 ```
 
-### 3. Label Your Binary and Package Directory
+#### 3. Label Your Binary and Package Directory
 
 ```bash
 semanage fcontext -a -t mysvcd_exec_t "/opt/mypkg/mysvcd"
@@ -225,13 +227,13 @@ restorecon -Rv /opt/mypkg/
 
 ---
 
-### Additional note on other directory to allow your own binary to R/W
+#### Additional note on other directory to allow your own binary to R/W
 
 If your service needs to read/write other directories—such as `/var/log/mypkg/`, `/var/cache/mypkg/`, `/var/lib/mypkg/`, or `/var/tmp/mypkg/`—it is best practice to manage these in a separate TE module for modularity and future flexibility.
 
 > In this example, we define a _catch-all_ type `mysvcd_var_t`. If your service requires more strict separation of log, cache, lib, etc., you can easily split into more granular types (e.g., `mysvcd_var_log_t`, `mysvcd_var_cache_t`, etc.).
 
-#### Example TE policy for variable data directory:
+**Example TE policy for variable data directory:**
 
 ```te
 # File: mysvcd_storage.te
@@ -251,7 +253,7 @@ allow mysvcd_t mysvcd_var_t:dir { read search write add_name remove_name };
 allow mysvcd_t mysvcd_var_t:file { read write append open create unlink };
 ```
 
-#### Example labeling and restorecon commands:
+**Example labeling and restorecon commands:**
 
 ```bash
 semanage fcontext -a -t mysvcd_var_t "/var/log/mypkg(/.*)?"
