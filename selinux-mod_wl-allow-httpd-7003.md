@@ -1,4 +1,6 @@
 # Manage SELinux to Allow httpd to Access Port 7003 (or Else)/TCP
+**Also refers to the case where the service is your own, not `httpd`.  
+This document provides practical, adaptable steps for customizing SELinux policy to securely enable network and file access for any system service.**
 
 ## Install Prerequisite Packages (RHEL9)
 
