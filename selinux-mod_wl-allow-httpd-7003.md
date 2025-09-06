@@ -60,19 +60,49 @@ afs_pt_port_t                  tcp      7002
 gatekeeper_port_t              tcp      1721, 7000
 ```
 
-### Check for Multiple Ports or Ranges (See Also Tips)
+### Check for Multiple Ports or Ranges (See also Tips)
 
 ```bash
 echo $(semanage port -l | awk '$1=="afs3_callback_port_t" && $2=="tcp" {$1=$2=""; print $0}')
 ```
 
-### Delete Existing Assignment If Safe to Do
+### ⚠️ Safety Check Before Deleting Port Assignment
+
+**Never delete a port assignment unless you are certain it is not required by any running service or SELinux policy.  
+Follow these steps before deleting:**
+
+1. **Find the SELinux type mapped to the port (7003/TCP for example):**
+    ```bash
+    semanage port -l | grep -w '7003' | grep tcp
+    # Note the SELinux type in the first column
+    ```
+
+2. **Check which SELinux domains are allowed to use this type:**
+    Replace `<SELinux_port_type>` with the type found above (e.g., `afs3_callback_port_t`):
+    ```bash
+    sesearch --allow -t <SELinux_port_type> -c tcp_socket -p name_connect
+    sesearch --allow -t <SELinux_port_type> -c tcp_socket -p name_bind
+    ```
+
+3. **Check if any process is actively using the port:**
+    ```bash
+    ss -tnlp | grep ':7003'
+    # Find the PID, then check its SELinux context:
+    ps -Z -p <pid>
+    # Make sure the running process is not using a domain that needs this port type
+    ```
+
+### Delete Existing Assignment _If Safe to Do_
+
+If you have confirmed the port is not in use:
 
 ```bash
 semanage port -d -p tcp 7003
 ```
 
 > Otherwise, reuse an appropriate predefined label.
+
+---
 
 ### Tips: Expand Port Ranges
 
