@@ -36,6 +36,10 @@ ausearch -m AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR | grep 'comm="http'
 
 ## Customize the Policy —Automatic Way (Moderate Security - All `unreserved_ports` Are Allowed from httpd)
 
+> **Caution:**  
+> When filtering audit logs for use with `audit2allow`, be aware that narrowing results with the `-m` option (e.g., `-m AVC,USER_AVC,SELINUX_ERR,USER_SELINUX_ERR`) may accidentally exclude relevant SELinux denial messages, especially if your system logs additional or unexpected types.  
+> For best results, omit the `-m` option when piping `ausearch` output to `audit2allow`; the tool will automatically ignore unrelated messages and process all necessary SELinux denials.
+
 ### Preview the Resultant Rule
 
 ```bash
