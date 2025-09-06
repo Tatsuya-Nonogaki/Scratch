@@ -130,10 +130,12 @@ require {
     type systemd_t;
     type mysvcd_t;
     type mysvcd_exec_t;
+    type mysvcd_opt_t;
     type httpd_wls_port_t;
     class tcp_socket name_connect;
     class process transition;
-    class file { execute read open };
+    class file { execute read open write append create unlink };
+    class dir { read search write add_name remove_name };
 }
 
 # Define the domain type for your daemon
@@ -143,6 +145,10 @@ type mysvcd_t;
 type mysvcd_exec_t;
 files_type(mysvcd_exec_t)
 
+# Define the type for your package directory
+type mysvcd_opt_t;
+files_type(mysvcd_opt_t)
+
 # Allow systemd to read/open/execute your binary
 allow systemd_t mysvcd_exec_t:file { read open execute };
 
@@ -151,6 +157,10 @@ type_transition systemd_t mysvcd_exec_t:process mysvcd_t;
 
 # Allow your service domain to connect to the custom port type
 allow mysvcd_t httpd_wls_port_t:tcp_socket name_connect;
+
+# Allow mysvcd_t to manage files in its own installed directory
+allow mysvcd_t mysvcd_opt_t:dir { read search write add_name remove_name };
+allow mysvcd_t mysvcd_opt_t:file { read write append open create unlink };
 ```
 
 ### 2. Build and Install Domain Module
@@ -162,12 +172,50 @@ semodule -i mysvcd.pp
 semodule -lfull | grep mysvcd
 ```
 
-### 3. Label Your Binary with the Exec Type
+### 3. Label Your Binary and Package Directory
 
 ```bash
 semanage fcontext -a -t mysvcd_exec_t "/opt/mypkg/mysvcd"
 restorecon -v /opt/mypkg/mysvcd
+
+semanage fcontext -a -t mysvcd_opt_t "/opt/mypkg(/.*)?"
+restorecon -Rv /opt/mypkg/
 ```
+
+---
+
+### Additional note on other directory to allow your own binary to R/W
+
+If your service needs to read/write other directories—such as `/var/log/mypkg/`, `/var/cache/mypkg/`, `/var/lib/mypkg/`, or `/var/tmp/mypkg/`—it is best practice to manage these in a separate TE module for modularity and future flexibility.
+
+#### Example TE policy for `/var/log/mypkg/`:
+
+```te
+# File: mysvcd_storage.te
+
+require {
+    type mysvcd_t;
+    class dir { read search write add_name remove_name };
+    class file { read write append open create unlink };
+}
+
+type mysvcd_var_log_t;
+files_type(mysvcd_var_log_t)
+
+allow mysvcd_t mysvcd_var_log_t:dir { read search write add_name remove_name };
+allow mysvcd_t mysvcd_var_log_t:file { read write append open create unlink };
+```
+
+#### Example labeling and restorecon commands:
+
+```bash
+semanage fcontext -a -t mysvcd_var_log_t "/var/log/mypkg(/.*)?"
+restorecon -Rv /var/log/mypkg/
+```
+
+> Repeat the above for other directories as needed, using distinct types (e.g., `mysvcd_var_cache_t`, `mysvcd_var_lib_t`, etc.).
+
+**You can build, install, and update these modules independently as your package requirements evolve.**
 
 ---
 
