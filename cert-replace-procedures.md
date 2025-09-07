@@ -1,16 +1,26 @@
 ### Overall policy
 - Use `vCert` instead of now discouraged `fixcerts.py` for stability, if possible. Use the most recent version of either tool.  
   > **Note:** One invaluable advantage of `fixcerts.py` is the capability to specify an extended validity period of renewed certificates (`--validityDays <DAYS>`).  
-  > The actual period of generated certificates **cannot exceed the expiry of the vCSA root CA**—even if a longer value is specified, certificates will expire at the root CA's end date.
+  > The actual period of generated certificates **cannot exceed the expiry of the vCSA root CA**—even if a longer value is specified, certificates will expire at the root CA's end date.  
+
+  > **Note:** Because some functionality for certain certificate types (notably STS certificates) is not covered in either tool, it is recommended to have `vCert` available—even if your main tool is `fixcerts.py`! This is required because the STS certificates are not visible via VECS CLI or `fixcerts.py`, and require `vCert` or equivalent tools for inspection.
+
 - Enable logging of the terminal application as far as possible  
   It is strongly recommended to run the commands, including the execution of the `vCert.py`/`fixcerts.py` on a `SSH` session with a terminal software, e.g., `PuTTY` or OS standard `ssh`.
 
 #### Pre-Renewal Checklist
 - **Always take a cold VM snapshot of the targetted vCSA, once shutting it down, before making any changes.**
-- Before modifying anything, take the list of current status of certificates, by a shell one-liner:
+- Before modifying anything, capture the current status of all certificates. First, use this shell one-liner to get all VECS-managed certificates:
     ```
     for store in $(/usr/lib/vmware-vmafd/bin/vecs-cli store list | grep -v TRUSTED_ROOT_CRLS); do echo "[*] Store :" $store; /usr/lib/vmware-vmafd/bin/vecs-cli entry list --store $store --text | grep -ie "Alias" -ie "Not Before" -ie "Not After"; done
     ```
+- Next, obtain information about the STS certificates and Extension Thumbprints, which are **not covered by the above command**, using vCert.py:
+    ```
+    ./vCert.py --run config/view_cert/op_view_11-sts.yaml
+    ./vCert.py --run config/check_cert/op_check_10-vc_ext_thumbprints.yaml
+    ```
+    > **Note:** Because the STS certificates and Extension Thumbprints are not visible via VECS CLI or `fixcerts.py`, it is necessary to have vCert.py available—even if your main tool is fixcerts.py! The second check is included in "1. Check current certificate status" main menu or an invocation with "--run config/op_check_cert.yaml" option.
+
 - Check the health of the vCenter Server  
   - Service status (can be checked on VAMI graphically)
      ```
@@ -38,6 +48,31 @@
        - tokenservice.log         _#Token service operations_
        - sso-config.log           _#SSO configuration changes/events_
        - openidconnect.log        _#OpenID Connect related authentication events_
+
+  - Check for storage utilization:
+    **Check the disk partitions not reaching full, especially `/storage/log`**
+    ```
+    df -h
+    ```
+    or
+    ```
+    df -h /storage/log
+    ```
+    > **Warning:**  
+    > If the `/var/log/vmware` directory (or its backing `/storage/log` partition) is nearly full or out of space, certificate management operations may fail or cause vCSA services to become unavailable or unstable.  
+    > Ensure there is sufficient free space **before** proceeding.  
+    > If space is low, consult [vCenter log disk exhaustion or /storage/log full](https://knowledge.broadcom.com/external/article/313077/vcenter-log-disk-exhaustion-or-storagelo.html) for diagnostic and cleanup guidance before attempting any certificate changes.
+
+#### Post-Renewal Checklist
+After completing certificate renewal procedures, it is essential to verify the health and status of the vCenter Server and its certificates.
+- Re-run the certificate status one-liner, and STS certificates and Extension Thumbprints checks with `vCert.py` to confirm that all renewed certificates have the correct expiry dates and consistency.
+- Check the service health using
+  ```
+  service-control --status --all
+  ```
+- Review the relevant logs in `/var/log/vmware/vmcad/` and `/var/log/vmware/sso/` for any errors or warnings.
+- Inspect the vCenter UI for certificate-related alerts to ensure that all services are operating normally and securely.
+- If you have external systems such as backup, monitoring, or automation software (e.g., Veeam Backup & Replication) that connect to vCenter Server, you may need to re-establish trust by updating or re-configuring the integration to re-import the new vCenter certificates. This is especially necessary when Machine SSL or CA certificates have been renewed or replaced.
 
 ---
 
@@ -75,10 +110,11 @@ Always use its interactive navigation. (Command-line options are very limited)
       ```
    3. Try recreating certificates per Certificate-Type, by selecting "3. Manage certificates" in the main menu and proceeding to the specific sub menu such as "2. Solution User certificates". Check the status of the certificates again.
       > *Refer to the certificate-type chart for correct menu entries.*
-   4. After complete renewal of all the failed certificates, go back to the main menu and select "8. Restart services". (This will take some time.)
+   4. If any of the certificates were updated, check for consistency in Extension Thumbprints by selecting "3. Manage certificates" in the main menu then "6. vCenter Extension thumbprints" (or directly run `./vCert.py --run config/manage_cert/op_manage-vc-ext-thumbprints.yaml`). If any MISMATCH are found, proceed with "Y" to solve.
+   5. After complete renewal of all the failed certificates, go back to the main menu and select "8. Restart services". (This will take some time.)
 
 8. **Final health check:**  
-   Check the health of the vCenter Server as described before, and confirm that all certificates have been successfully renewed and that services are operating normally.
+   Verify the vCSA service health and certificate validity. For detailed verification steps, refer to the "Post-Renewal Checklist" section under "Overall policy" at the beginning of this document.
 
 ---
 
@@ -113,6 +149,10 @@ It is sometimes reported that `fixcerts.py` has difficulties in stability; for e
      ```
      for store in $(/usr/lib/vmware-vmafd/bin/vecs-cli store list | grep -v TRUSTED_ROOT_CRLS); do echo "[*] Store :" $store; /usr/lib/vmware-vmafd/bin/vecs-cli entry list --store $store --text | grep -ie "Alias" -ie "Not Before" -ie "Not After"; done
      ```
+   - Especially after renewal of STS or lookupservice related certificates, check by running;
+     ```
+     ./vCert.py --run config/view_cert/op_view_11-sts.yaml
+     ```
    - Review for any certificates that were not updated.
 
 3. **Check logs for errors after each run:**  
@@ -126,7 +166,11 @@ It is sometimes reported that `fixcerts.py` has difficulties in stability; for e
    - If any certificate-type fails to renew, attempt rerunning fixcerts.py for that type.
    - Use the `--debug` option for more detailed error output.
    - If failures persist, consider manual renewal using `vecs-cli` or consult official product support documentation.
-
+   - If any of the certificates were updated, check for consistency in Extension Thumbprints by running;
+     ```
+     ./vCert.py --run config/manage_cert/op_manage-vc-ext-thumbprints.yaml
+     ```
+     If any MISMATCH are found, proceed with "Y" to solve.
 5. **Restart services after all renewals:**  
    - Once all certificate-types have been renewed successfully, restart vCSA services to apply changes by running:
      ```
@@ -135,12 +179,7 @@ It is sometimes reported that `fixcerts.py` has difficulties in stability; for e
      > This is the recommended and safe method to restart services, as used internally by fixcerts.py itself.
 
 6. **Final health check and post-renewal verification:**  
-   - Run service health check as described previously:
-     ```
-     service-control --status --all
-     ```
-   - Re-run the certificate status one-liner to confirm all expiry dates.
-   - Check the vCenter UI for any certificate-related warnings or alerts.
+   Verify the vCSA service health and certificate validity. For detailed verification steps, refer to the "Post-Renewal Checklist" section under "Overall policy" at the beginning of this document.
 
 ---
 
