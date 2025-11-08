@@ -3,10 +3,10 @@
 This kit automates deployment of cloud-init-enabled Linux virtual machines on vSphere.  
 The management side uses PowerShell / PowerCLI (Windows admin host is assumed). The workflow is split into four phases:
 
-1. Clone from template (Phase 1)  
-2. Guest initialization on the clone (Phase 2)  
-3. Create and attach a cloud-init seed ISO, boot and let cloud-init run (Phase 3)  
-4. Cleanup — detach & remove seed ISO and optionally disable cloud-init permanently (Phase 4)
+**Phase 1:** Clone from VM Template  
+**Phase 2:** Guest initialization on the clone  
+**Phase 3:** Create and attach a cloud-init seed ISO, boot and let cloud-init run  
+**Phase 4:** Cleanup — detach & remove seed ISO and disable cloud-init permanently
 
 This is the English version of the README. It follows the finalized Japanese draft and includes the operational guidance and cautions needed for public consumption.
 
@@ -33,12 +33,12 @@ Table of contents
 
 This kit automates the common workflow required to create cloud-init-driven VMs from a vSphere template:
 
-- Create a clone from a Template VM (Phase 1)
-- Prepare the clone to accept cloud-init (Phase 2)
-- Generate a cloud-init seed (user-data, meta-data, optional network-config), create an ISO (cidata), upload it to a datastore and attach it to the clone's CD drive, then boot the VM and wait for cloud-init to finish (Phase 3)
-- Detach and remove the seed ISO from the datastore and (optionally) place /etc/cloud/cloud-init.disabled on the guest to prevent future automatic runs (Phase 4)
+- **Phase 1:** Create a clone from a VM Template
+- **Phase 2:** Prepare the clone to accept cloud-init
+- **Phase 3:** Generate a cloud-init seed (user-data, meta-data, optional network-config), create an ISO (cidata), upload it to a datastore and attach it to the clone's CD drive, then boot the VM and wait for cloud-init to complete
+- **Phase 4:** Detach and remove the seed ISO from the datastore, then place /etc/cloud/cloud-init.disabled on the guest to prevent future automatic runs (can be selectively omitted)
 
-The main control program is `cloudinit-linux-vm-deploy.ps1` (PowerShell). Templates include the `infra/` helper files to keep the template safe from accidental cloud-init execution.
+The main control program is `cloudinit-linux-vm-deploy.ps1` (PowerShell). The kit includes the `infra/` helper files to prepare base configuration of cloud-init to be cloned while keeping the template safe from accidental cloud-init execution.
 
 ---
 
@@ -53,21 +53,21 @@ This kit is not intended to replace cloud-init but to complement operational gap
 - Logs and generated artifacts are retained under `spool/<new_vm_name>/` on the admin host for auditing and troubleshooting
 - Using PowerShell `-Verbose` shows important internal steps in the console to assist debugging
 
-Important: This kit assumes the intended lifecycle is template -> new clone -> initialization -> personalization. It is not designed to "retrofit" cloud-init onto already running production VMs that you want to change later.
+**Important:** This kit assumes the intended lifecycle is **template** -> **new clone** -> **initialization** -> **personalization**. It is not designed to "retrofit" cloud-init onto already running production VMs that you want to change later (at the time being).
 
 ---
 
 ## Key files
 
-- cloudinit-linux-vm-deploy.ps1 — main PowerShell deployment script (implements phases 1–4)
-- params/vm-settings_example.yaml — parameter example (copy and edit per-VM)
-- templates/original/*_template.yaml — cloud-init user-data / meta-data / network-config templates
-- scripts/init-vm-cloudinit.sh — script transferred and run on the clone in Phase 2
-- infra/prevent-cloud-init.sh — place on the template to disable automatic cloud-init
-- infra/cloud.cfg, infra/99-template-maint.cfg — template-optimized cloud.cfg and additional config
-- infra/enable-cloudinit-service.sh — helper to re-enable cloud-init service if needed
-- infra/req-pkg-cloudinit.txt, infra/req-pkg-cloudinit-full.txt — package lists
-- spool/ — included in the repository with a dummy file; the script writes per-VM output to spool/<new_vm_name>/
+- `cloudinit-linux-vm-deploy.ps1` — main PowerShell deployment script (implements phases 1–4)
+- `params/vm-settings_example.yaml` — parameter example (copy and edit per-VM)
+- `templates/original/*_template.yaml` — cloud-init user-data / meta-data / network-config templates
+- `scripts/init-vm-cloudinit.sh` — script transferred and run on the clone in Phase 2
+- `infra/prevent-cloud-init.sh` — place on the template to disable automatic cloud-init
+- `infra/cloud.cfg`, `infra/99-template-maint.cfg` — template-optimized cloud.cfg and additional config
+- `infra/enable-cloudinit-service.sh` — helper to ensure cloud-init services enabled on the template VM
+- `infra/req-pkg-cloudinit.txt`, `infra/req-pkg-cloudinit-full.txt` — package lists
+- `spool/` — the script writes per-VM output to spool/<new_vm_name>/ (`dummy.txt` is included only for this empty folder to exist in GitHub repository)
 
 ---
 
