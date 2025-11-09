@@ -1,4 +1,4 @@
-# Cloud-init Ready: Linux VM Deployment Kit on vSphere (English)
+# Cloud-init Ready: Linux VM Deployment Kit on vSphere
 
 ## Overview
 
