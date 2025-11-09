@@ -19,7 +19,7 @@ Table of contents
 - Quick Start
 - Phases — What Does Each Step Perform?
 - Template Infra: What is Changed and Why
-- mkisofs / ISO creation notes
+- mkisofs / ISO Creation Notes
 - Operational Recommendations
 - Troubleshooting (common cases)
 - Logs & Debugging
@@ -229,7 +229,7 @@ Notes:
 
 ---
 
-## mkisofs & ISO creation notes
+## mkisofs & ISO Creation Notes
 
 - The kit assumes a Windows admin host and by default the script variable `$mkisofs` points to a Win32 mkisofs binary bundled with cdrtfe (https://sourceforge.net/projects/cdrtfe/). Adjust `$mkisofs` in the script's global variables if you use a different binary or a Linux environment (e.g., genisoimage under WSL).
 - The ISO must be created with the volume label `cidata` and include user-data/meta-data/network-config files in the root so cloud-init recognizes it.
