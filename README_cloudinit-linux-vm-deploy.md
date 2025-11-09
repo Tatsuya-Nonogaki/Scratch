@@ -1,50 +1,37 @@
 # Cloud-init Ready: Linux VM Deployment Kit on vSphere (English)
 
-This kit automates deployment of cloud-init-enabled Linux virtual machines on vSphere.  
-The management side uses PowerShell / PowerCLI (Windows admin host is assumed). The workflow is split into four phases:
-
-**Phase 1:** Clone from VM Template  
-**Phase 2:** Guest initialization on the clone  
-**Phase 3:** Create and attach a cloud-init seed ISO, boot and let cloud-init run  
-**Phase 4:** Cleanup — detach & remove seed ISO and disable cloud-init permanently
-
-This is the English version of the README. It follows the finalized Japanese draft and includes the operational guidance and cautions needed for public consumption.
-
----
-
-Table of contents
-- Overview
-- What this kit complements in cloud-init
-- Key files
-- Requirements and pre-setup (admin host and template VM)
-- Quick start
-- Phases — When to run / When not to run (public-facing guidance)
-  - Phase 1..4 concise descriptions and cautions
-- Template infra: what is changed and why
-- mkisofs / ISO creation notes
-- Operational recommendations
-- Troubleshooting (common cases)
-- Logs & debugging
-- License
-
----
-
 ## Overview
 
-This kit automates the common workflow required to create cloud-init-driven VMs from a vSphere template:
+This kit enables quick deployment of Linux VM from prepared VM Template on vSphere virtual machine environment, using cloud-init framework. The workflow is split into four phases:
 
 - **Phase 1:** Create a clone from a VM Template
 - **Phase 2:** Prepare the clone to accept cloud-init
 - **Phase 3:** Generate a cloud-init seed (user-data, meta-data, optional network-config), create an ISO (cidata), upload it to a datastore and attach it to the clone's CD drive, then boot the VM and wait for cloud-init to complete
 - **Phase 4:** Detach and remove the seed ISO from the datastore, then place /etc/cloud/cloud-init.disabled on the guest to prevent future automatic runs (can be selectively omitted)
 
-The main control program is `cloudinit-linux-vm-deploy.ps1` (PowerShell). The kit includes the `infra/` helper files to prepare base configuration of cloud-init to be cloned while keeping the template safe from accidental cloud-init execution.
+The main control program is a PowerShell script: `cloudinit-linux-vm-deploy.ps1`. The kit includes the `infra/` helper files to prepare base configuration of cloud-init to be cloned while keeping the template safe from accidental cloud-init execution.
 
 ---
 
-## What this kit complements in cloud-init (key points)
+Table of contents
+- Overview
+- Key Points — What This Kit Complements in Cloud-init
+- Key Files
+- Requirements and Pre-setup (admin host and template VM)
+- Quick Start
+- Phases — What Does Each Step Perform?
+- Template Infra: What is Changed and Why
+- mkisofs / ISO creation notes
+- Operational Recommendations
+- Troubleshooting (common cases)
+- Logs & Debugging
+- License
 
-This kit is not intended to replace cloud-init but to complement operational gaps commonly found in real-world vSphere deployments:
+---
+
+## Key Points — What This Kit Complements in Cloud-init
+
+This kit assumes the intended lifecycle; **template** -> **new clone** -> **initialization** -> **personalization**. It is not intended to replace cloud-init but to complement operational gaps commonly found in real-world cloud-init driven vSphere deployments:
 
 - Filesystem expansion beyond root: kit-specific handling to reformat/resync swap devices and expand other filesystems (not just root)
 - NetworkManager adjustments for Ethernet connections (for example: enforce IPv6 disabled, ignore-auto-routes/ignore-auto-dns)
@@ -53,21 +40,22 @@ This kit is not intended to replace cloud-init but to complement operational gap
 - Logs and generated artifacts are retained under `spool/<new_vm_name>/` on the admin host for auditing and troubleshooting
 - Using PowerShell `-Verbose` shows important internal steps in the console to assist debugging
 
-**Important:** This kit assumes the intended lifecycle is **template** -> **new clone** -> **initialization** -> **personalization**. It is not designed to "retrofit" cloud-init onto already running production VMs that you want to change later (at the time being).
+**Important:** This kit is not designed to "retrofit" cloud-init onto already running production VMs that you want to change later (at the time being).
 
 ---
 
-## Key files
+## Key Files
 
 - `cloudinit-linux-vm-deploy.ps1` — main PowerShell deployment script (implements phases 1–4)
-- `params/vm-settings_example.yaml` — parameter example (copy and edit per-VM)
-- `templates/original/*_template.yaml` — cloud-init user-data / meta-data / network-config templates
+- `params/vm-settings_example.yaml` — centralized parameter file (example to be copied and edited per-VM)
+- `templates/original/*_template.yaml` — cloud-init user-data / meta-data / network-config YAML templates (copy them directly onto `templates/`; edit if required)
 - `scripts/init-vm-cloudinit.sh` — script transferred and run on the clone in Phase 2
-- `infra/prevent-cloud-init.sh` — place on the template to disable automatic cloud-init
-- `infra/cloud.cfg`, `infra/99-template-maint.cfg` — template-optimized cloud.cfg and additional config
-- `infra/enable-cloudinit-service.sh` — helper to ensure cloud-init services enabled on the template VM
-- `infra/req-pkg-cloudinit.txt`, `infra/req-pkg-cloudinit-full.txt` — package lists
-- `spool/` — the script writes per-VM output to spool/<new_vm_name>/ (`dummy.txt` is included only for this empty folder to exist in GitHub repository)
+- `infra/` — template VM preparation tools:
+  - `prevent-cloud-init.sh` — installs the files below to manage base setting and prevent template VM from accidental invocation of cloud-init, etc.
+    - `cloud.cfg`, `infra/99-template-maint.cfg`
+  - `enable-cloudinit-service.sh` — helper to ensure cloud-init services enabled
+  - `req-pkg-cloudinit.txt`, `infra/req-pkg-cloudinit-full.txt` — package lists
+- `spool/` — the script writes per-VM output to spool/<new_vm_name>/ (`dummy.txt` is included merely for this empty folder to exist in GitHub repository)
 
 ---
 
@@ -84,7 +72,8 @@ Template VM (example: RHEL9):
 - open-vm-tools
 - cloud-init, cloud-utils-growpart (dracut-config-generic is optional if you need dracut operations)
 - A CD/DVD drive present on the VM (seed ISO is attached to the CD drive)
-- Copy `infra/` to the template and run `prevent-cloud-init.sh` as root to protect the template
+- Copy `infra/` to the template VM and run `prevent-cloud-init.sh` as root to prepare cloud-init base setting and protect the template
+- **important:** one administrative user to assign to `username:` in parameter file. This local system user account is necessary for VIX/Guest Operations API such as `Copy-VMGuestFile` / `Invoke-VMScript` PowerCLI comdlets; the user must exist and is allowed to execute at least `/bin/bash` as root via `sudo` (`NOPASSWD` is not necessary).
 
 Line endings:
 - PowerShell scripts and params YAML: CRLF (Windows)
@@ -92,7 +81,7 @@ Line endings:
 
 ---
 
-## Quick start (short path)
+## Quick Start (short path)
 
 1. Clone or unzip this repo on the Windows admin host and install PowerCLI / powershell-yaml.
 2. On the template VM:
@@ -116,7 +105,7 @@ Note: The repository includes `spool/` (a dummy file exists so the folder is pre
 
 ---
 
-## Phases — When to run / When not to run (public guidance)
+## Phases — What Does Each Step Perform?
 
 Important: Phase selection must be a contiguous ascending list (single phase allowed). Examples:
 - Valid: `-Phase 1` or `-Phase 1,2,3`
@@ -225,7 +214,7 @@ Result:
 
 ---
 
-## Template infra — what we change and why
+## Template Infra: What is Changed and Why
 
 `infra/cloud.cfg` and `infra/99-template-maint.cfg` are tuned to make the source Template safe to operate and easy to clone:
 
@@ -250,7 +239,7 @@ Notes:
 
 ---
 
-## Operational recommendations
+## Operational Recommendations
 
 - Phase selection:
   - You may run any contiguous sequence of phases or a single phase. Non-contiguous selection (e.g., `-Phase 1,3`) will be rejected.
@@ -282,7 +271,7 @@ Notes:
 
 ---
 
-## Logs & debugging
+## Logs & Debugging
 
 - Detailed logs and generated files are stored on the admin host in `spool/<new_vm_name>/`. The primary log file is `spool/<new_vm_name>/deploy-YYYYMMDD.log` (the script writes additional files such as the generated seed ISO and copies of the rendered YAML).
 - Run the PowerShell script with `-Verbose` to see important internal steps printed to the console for debugging.
@@ -291,4 +280,4 @@ Notes:
 
 ## License
 
-MIT License — see the repository LICENSE file for details.
+This project is licensed under the MIT License - see the repository LICENSE file for details.
