@@ -98,8 +98,9 @@ Line endings:
      This replaces `/etc/cloud/cloud.cfg` with the kit-optimized config, installs `/etc/cloud/cloud.cfg.d/99-template-maint.cfg` and create `/etc/cloud/cloud-init.disabled`.
    - Shutdown the VM and convert to a vSphere VM Template.
 3. On the admin host:
-   - Copy `params/vm-settings_example.yaml` to customize as your specification with a new filename you prefer (example: `params/vm-settings_myvm01.yaml`).  
+   - Copy `params/vm-settings_example.yaml` to customize as your specification with a new filename you prefer (e.g. `params/vm-settings_myvm01.yaml`).  
      **Tip:** Use the deploy target VM name in the file name so that it is in sync with `new_vm_name` parameter to keep things clear.
+   - Copy `templates/original/*_template.yaml` files to directly on `templates/`.
 4. Open a PowerShell console with *script_home* as current folder and run the deploy script:
    ```powershell
    .\cloudinit-linux-vm-deploy.ps1 -Phase 1,2,3 -Config .\params\vm-settings_myvm01.yaml
