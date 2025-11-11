@@ -6,8 +6,8 @@ This kit enables quick deployment of Linux VM from prepared VM Template on vSphe
 
 - **Phase 1:** Create a clone from a VM Template
 - **Phase 2:** Prepare the clone to accept cloud-init
-- **Phase 3:** Generate a cloud-init seed (user-data, meta-data, optional network-config), create an ISO (cidata), upload it to a datastore and attach it to the clone's CD drive, then boot the VM and wait for cloud-init to complete
-- **Phase 4:** Detach and remove the seed ISO from the datastore, then place /etc/cloud/cloud-init.disabled on the guest to prevent future automatic runs (can be selectively omitted)
+- **Phase 3:** Generate a cloud-init seed (user-data, meta-data, optional network-config), pack them in an ISO, upload it to a datastore and attach it to the clone's CD drive, then boot the VM and wait for cloud-init to complete
+- **Phase 4:** Detach and remove the seed ISO from the datastore, then place /etc/cloud/cloud-init.disabled on the guest to prevent future automatic personalization (can be selectively omitted)
 
 ---
 
