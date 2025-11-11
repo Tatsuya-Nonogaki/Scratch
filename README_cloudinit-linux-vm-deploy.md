@@ -48,7 +48,7 @@ This kit assumes the intended lifecycle; **template** -> **new clone** -> **init
 - `cloudinit-linux-vm-deploy.ps1` — main PowerShell deployment script (implements phases 1–4)
 - `params/vm-settings_example.yaml` — centralized parameter file (example to be copied and edited per-VM)
 - `templates/original/*_template.yaml` — cloud-init user-data / meta-data / network-config YAML templates (copy them directly onto `templates/`; edit if required)
-- `scripts/init-vm-cloudinit.sh` — script transferred and run on the clone in Phase 2
+- `scripts/init-vm-cloudinit.sh` — script transferred and run on the clone in Phase-2
 - `infra/` — template VM preparation tools:
   - `prevent-cloud-init.sh` — installs the files below to manage base setting and prevent template VM from accidental invocation of cloud-init, etc.
     - `cloud.cfg`, `cloud.cfg.d/99-template-maint.cfg`
@@ -123,7 +123,7 @@ Important: Phase selection must be a contiguous ascending list (single phase als
 - Valid: `-Phase 1` or `-Phase 1,2,3`
 - Invalid: `-Phase 1,3` (non-contiguous)
 
-Phase 1–3 form the typical deployment flow. Phase 4 is a post-processing operation with different semantics and is recommended to be run after confirming Phase 3 succeeded.
+Phase 1–3 form the typical deployment flow. Phase 4 is a post-processing operation with different semantics and is recommended to be run after confirming Phase-3 succeeded.
 
 ### Phase 1 — Automatic Cloning
 Purpose:
@@ -139,7 +139,7 @@ High-level steps:
 Result:
 - A new VM object appears in vCenter (left powered off).
 
-Notes / Cautions:
+Cautions / Notes:
 - Don't run if a VM with the same name already exists on the vCenter (the script checks and aborts).
 
 ### Phase 2 — Guest Initialization
@@ -160,7 +160,7 @@ High-level steps:
 Result:
 - Clone is ready for cloud-init personalization, ends with powered on state.
 
-Notes / Cautions:
+Cautions / Notes:
 - Ensure the credential (`username` and `password`) in the parameter file is correct for the existing administrative user on the VM — the script uses `Invoke-VMScript` and `Copy-VMGuestFile` with the credentials. This user must be able to run `sudo /bin/bash` (refer to [Requirements / Pre-setup](#Requirements---Pre-setup)).
 - The kit expects to remove template-level blocking files; ensure the init script `scripts/init-vm-cloudinit.sh` is appropriate for your distribution.
 - As the VM is left powered on, administrators can log in to verify or perform adjustments if needed. When you are finished, you may shut it down manually, otherwise it will be shut down automatically at the beginning of Phase-3.
@@ -204,33 +204,33 @@ Result:
 - The seed ISO is detached and removed, and cloud-init is disabled permanently on the guest to prevent further cloud-init personalization effect.
 
 Cautions / Notes:
-- Phase-4 doesn't try to power-on the VM even if it is shutdown. If the VM is powered off or VMware Tools is not running, script aborts with error just before `cloud-init.disabled` creation step.
+- Phase-4 doesn't try to power-on the VM even if it is shutdown. If the VM is powered off or VMware Tools is not ready, script aborts with error just before `cloud-init.disabled` creation after ISO attach.
 - If you execute Phase-4 while the VM is running, vSphere blocks the script process until you answer "Yes" to the prompt (on VMRC or the VM page of vSphere Client) whether you are sure you want to detach it.
 
 ---
 
 ## Template Infra: What is Changed and Why
 
-`infra/cloud.cfg` and `infra/99-template-maint.cfg` are tuned to make the source Template safe to operate and easy to clone:
+`cloud.cfg` and `99-template-maint.cfg` in `infra/` folder have been tuned to make the source Template safe to operate and maintain cloud-init environment for cloning:
 
-The README documents only the parameters that have been intentionally changed from RHEL9 default; those are marked as [CHANGED] in the shipped `infra/cloud.cfg`. Key changes we apply (explicitly changed from RHEL9 defaults):
+The included `cloud.cfg` is based on distro package default for RHEL9 (original is saved in `default/` for reference). The parameters customized for this kit is marked with "[CHANGED]". Those marked with "[NOTE]" are kept default and important for kit's intended behavoir. "[CHANGED]" parameters are as follows (may change without notice):
 
-- users: [] — suppress default user creation (no cloud-user) [CHANGED]  
-- disable_root: false — allow root SSH login on template (adjust per your policies) [CHANGED]  
-- preserve_hostname: true — keep the template hostname (on clones we create `99-override.cfg` to set `preserve_hostname: false`) [CHANGED]  
-- Most cloud-init modules are set to once / once-per-instance so the template and clones do not execute modules repeatedly or unexpectedly [CHANGED]  
-- Package update/upgrade steps were removed from cloud-final to avoid accidental package changes during cloning [CHANGED]
+- users: [] — suppress creation of default user `cloud-user`
+- disable_root: false — allow root SSH login; 'true' creates `/etc/ssh/sshd_confg.d/50-cloud-init.conf` only for this purpose
+- preserve_hostname: true — protect `/etc/hostname` on template from automatic update (on clones we create `99-override.cfg` to override with `false`)
+- Most cloud-init modules are set to `once-per-instance` or `once` so that the template and clones do not execute modules repeatedly or unexpectedly
+- Package update/upgrade cloud-init module was removed from cloud-final to avoid accidental package changes during cloning
 
 Notes:
-- SSH host key regeneration settings (e.g., `ssh_deletekeys`, `ssh_genkeytypes`) are left as RHEL9 defaults and are not intentionally changed by the kit. The README highlights only the settings listed above that were intentionally changed.
+- SSH host key regeneration settings (i.e., `ssh_deletekeys`, `ssh_genkeytypes`) are left default: it could be programmed via `runcmd` but this default is considered optimal.
 
 ---
 
 ## mkisofs & ISO Creation Notes
 
-- The kit assumes a Windows admin host and by default the script variable `$mkisofs` points to a Win32 mkisofs binary bundled with cdrtfe (https://sourceforge.net/projects/cdrtfe/). Adjust `$mkisofs` in the script's global variables if you use a different binary or a Linux environment (e.g., genisoimage under WSL).
-- The ISO must be created with the volume label `cidata` and include user-data/meta-data/network-config files in the root so cloud-init recognizes it.
-- Depending on the mkisofs implementation, you may need to adapt the `$mkArgs` used in the script (for encoding, Joliet flags, etc.). If mkisofs fails, confirm `$mkisofs` path and `$mkArgs` match your mkisofs binary.
+- The kit assumes a Windows admin host and by default the script variable `$mkisofs` points to a Win32 `mkisofs.exe` binary bundled with cdrtfe (https://sourceforge.net/projects/cdrtfe/). Adjust `$mkisofs` in the script's global variables if you use a different binary or a Linux environment on Windows (e.g., `genisoimage` under WSL).
+- The ISO must be created with the volume label `cidata` and include `user-data`, `meta-data`, `network-config` files in the root as cloud-init specification demands.
+- Depending on the ISO creator implementation, you may need to adapt the `$mkArgs` commandline options used in the script (for encoding, Joliet/RockRidge flags, etc.). If mkisofs fails, confirm `$mkisofs` path and `$mkArgs` match your executable.
 
 ---
 
@@ -238,38 +238,38 @@ Notes:
 
 - Phase selection:
   - You may run any contiguous sequence of phases or a single phase. Non-contiguous selection (e.g., `-Phase 1,3`) will be rejected.
-  - Prefer running Phase 4 as a separate step after you have confirmed Phase 3 succeeded (Phase 4 is a finalization step).
+  - Prefer running Phase-4 as a separate step after you have confirmed Phase-3 succeeded (Phase-4 is a finalization step).
 - VMware Tools:
   - Required for Phase 2/3/4 guest file operations. Verify `open-vm-tools` is installed and functioning on the guest.
 - Credentials:
-  - `params/*.yaml` contains credentials in plain form in the example. Treat those files as sensitive. Use credential stores or secure methods to protect secrets in production.
+  - `params/*.yaml` contains credentials in plain form in the example. Treat those files as sensitive. Use `VICredentialStore` or secure methods to protect secrets in production.
 - spool directory:
-  - The repository includes `spool/` with a dummy file so it exists after clone/unzip. The script creates `spool/<new_vm_name>/` and writes logs such as `spool/<new_vm_name>/deploy-YYYYMMDD.log` and generated seeds/ISOs there.
+  - The kit includes `spool/` folder with a dummy file so that it can exist on the GitHub repository. If you noticed the folder absent, please create it prior to script execution.
 
 ---
 
 ## Troubleshooting (common cases)
 
 - cloud-init did not run
-  - Check the clone does not still have `/etc/cloud/cloud-init.disabled` (Phase 2 must have removed it). Verify `scripts/init-vm-cloudinit.sh` returned success.
-  - Inspect `spool/<new_vm_name>/cloudinit-seed/` to confirm generated user-data/meta-data/network-config content and timestamps.
+  - Check the clone does not still have `/etc/cloud/cloud-init.disabled` (Phase-2 must have removed it). Verify `scripts/init-vm-cloudinit.sh` returned success.
+  - Inspect `spool/<new_vm_name>/cloudinit-seed/` to confirm generated `user-data`, `meta-data`, `network-config` content and timestamps. Check `spool/cloudinit-linux-seed.iso` too.
   - Verify VMware Tools are running; if not, `Copy-VMGuestFile` and `Invoke-VMScript` will fail.
   - Check guest logs: `/var/log/cloud-init.log`, `/var/log/cloud-init-output.log`, and `/var/lib/cloud/instance/*`.
 
 - ISO creation / upload failure
-  - `$mkisofs` not found or wrong binary. Confirm `$mkisofs` path in the script or use a compatible mkisofs and update the script.
-  - `seed_iso_copy_store` is malformed. Expected form: `[DATASTORE] path/` (example: `[COMMSTORE01] cloudinit-iso/`).
-  - Datastore already contains an ISO file at that path (common when re-running Phase 3). Solution: run Phase 4 alone to remove the existing ISO, or manually delete the ISO from the datastore. When running Phase 4 only and you want to avoid creating `/etc/cloud/cloud-init.disabled`, use `-NoCloudReset`.
+  - `$mkisofs` not found or wrong binary. Confirm `$mkisofs` path in the script or use a compatible ISO creator and update the script.
+  - `seed_iso_copy_store` is malformed. Expected form: `[DATASTORE] path/` (e.g., `[COMMSTORE01] cloudinit-iso/` —trailing '/' is optional).
+  - Datastore path already contains an ISO file with that name (common when rerun Phase-3). Solution: run Phase-4 alone with `-NoCloudReset` option to remove the existing ISO (see also "Cautions / Notes" in [Phase-3 details](#Phase-3---Cloud-init-seed-creation---personalization) section)
 
 - Network configuration not applied as expected
-  - Ensure `templates/original/network-config_template.yaml` and `params` `netifX.netdev` values match the guest's actual interface names (e.g., `ens192`). Also verify the mapping of vSphere NIC order (Network <index>) vs. guest device naming if your environment renumbers devices.
+  - Ensure `templates/network-config_template.yaml` has `{{netif*.netdev}}` placeholders that match `netif*:` properies in the parameter file. Also check if `netif*.netdev` values in params match the guest's actual interface device names (e.g., `ens192`). Additionally verify the mapping of vSphere NIC order (Network \<index\>) vs. guest device naming if your environment renumbers devices.
 
 ---
 
 ## Logs & Debugging
 
-- Detailed logs and generated files are stored on the admin host in `spool/<new_vm_name>/`. The primary log file is `spool/<new_vm_name>/deploy-YYYYMMDD.log`. The script writes additional files such as the generated seed ISO and copies of the rendered YAMLs in `cloudinit-seed/` subfolder, which is removed and re-created at each repeated Phase-3 run. Some temporary files are removed after a run.
-- Run the PowerShell script with `-Verbose` to see important internal steps printed to the console for debugging.
+- Detailed logs and generated files are stored under `spool/<new_vm_name>/` on the admin host, where the primary log file is `deploy-YYYYMMDD.log`. The script writes additional files such as the generated seed ISO and the sources of it in `cloudinit-seed/` subfolder, which is removed and re-created at each Phase-3 run. Some other temporary files are also created there but removed after a run.
+- Run the main script with `-Verbose` to see more internal steps printed on the console for debugging.
 
 ---
 
