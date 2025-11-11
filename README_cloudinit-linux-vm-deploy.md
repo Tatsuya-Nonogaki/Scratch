@@ -263,6 +263,15 @@ Notes:
 
 ---
 
+## 👉 References
+
+- [cloud-init documentation](https://cloud-init.io/)
+- [VMware PowerCLI](https://developer.vmware.com/powercli)
+- [powershell-yaml](https://github.com/cloudbase/powershell-yaml)
+- [cdrtfe (mkisofs win32)](https://sourceforge.net/projects/cdrtfe/)
+
+---
+
 ## License
 
 This project is licensed under the MIT License — see the repository `LICENSE` file for details.
