@@ -12,18 +12,18 @@ This kit enables quick deployment of Linux VMs from a prepared VM Template on vS
 ---
 
 **Table of contents**
-- Overview  
-- Key Points — What This Kit Complements in cloud-init  
-- Key Files  
-- Requirements and Pre-setup (admin host and template VM)  
-- Quick Start  
-- Phases — What Does Each Step Perform?  
-- Template Infra: What is Changed and Why  
-- mkisofs / ISO Creation Notes  
-- Operational Recommendations  
-- Troubleshooting (common cases)  
-- Logs & Debugging  
-- License
+- [Overview](#overview)  
+- [Key Points — What This Kit Complements in cloud-init](#key-points--what-this-kit-complements-in-cloud-init)  
+- [Key Files](#key-files)  
+- [Requirements and Pre-setup (admin host and template VM)](#requirements--pre-setup)  
+- [Quick Start](#quick-start-short-path)  
+- [Phases — What Does Each Step Perform?](#phases--what-does-each-step-perform)  
+- [Template Infra: What is Changed and Why](#template-infra-what-is-changed-and-why)  
+- [mkisofs / ISO Creation Notes](#mkisofs--iso-creation-notes)  
+- [Operational Recommendations](#operational-recommendations)  
+- [Troubleshooting (common cases)](#troubleshooting-common-cases)  
+- [Logs & Debugging](#logs--debugging)  
+- [License](#license)
 
 ---
 
