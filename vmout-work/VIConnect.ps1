@@ -36,7 +36,7 @@ Function VIConnectPlain {
         Typical usage:
           - $vcpasswd is defined in settings.ps1.
           - Newer connection functions (VIConnect / VIConnectLegacy) delegate
-            to VIConnectPlain when isPlainMode returns true.
+            to VIConnectPlain when isPlainMode returns $true.
 
         It does not use SecretStore, VISecret, or VICredentialStore.
     #>
@@ -208,15 +208,15 @@ Function VIConnect {
             catch {
                 if ($i -eq 1) {
                     # Only on the first attempt we optionally register/update the secret interactively
-                    Write-Warning "Secret for $vcserver at vcuser in vault '$Vault' is missing or cannot be used."
+                    Write-Warning "Secret for $vcserver / $vcuser in vault '$Vault' is missing or cannot be used."
 
                     Write-Output "You may now enter the password for $vcuser at ${vcserver}"
                     if ($UpdatePassword) {
                         Write-Output "It will be stored in SecretVault '$Vault' on successful connection."
                     }
 
-                    $securePassword = Read-Host -AsSecureString "Password for $vcuser at ${vcserver}"
-                    if (-not $securePassword -or $securePassword.Length -lt 1) {
+                    $cred = Get-Credential -UserName $vcuser -Message "Enter password for $vcuser at ${vcserver}"
+                    if (-not $cred) {
                         Write-Warning "Connection via secret failed (attempt $i): no password was provided at the prompt."
                         continue
                     }
@@ -224,8 +224,8 @@ Function VIConnect {
                     if ($UpdatePassword) {
                         # Update / create stored secret
                         try {
-                            Write-Output "Connect-VIServerWithSecret -Server $vcserver -User $vcuser -Vault $Vault -SaveCredentials"
-                            Connect-VIServerWithSecret -Server $vcserver -User $vcuser -Password $securePassword -Vault $Vault -SaveCredentials `
+                            Write-Output "Connect-VIServerWithSecret -Server $vcserver -Credential <...> -Vault $Vault -SaveCredentials"
+                            Connect-VIServerWithSecret -Server $vcserver -Credential $cred -Vault $Vault -SaveCredentials `
                                 -WarningAction SilentlyContinue -ErrorAction Stop
                             $connectionSucceeded = $true
                         }
@@ -236,8 +236,8 @@ Function VIConnect {
                     else {
                         # One-time connection without changing the stored secret
                         try {
-                            Write-Output "Connect-VIServerWithSecret -Server $vcserver -User $vcuser -Vault $Vault (one-time, no SaveCredentials)"
-                            Connect-VIServerWithSecret -Server $vcserver -User $vcuser -Password $securePassword -Vault $Vault `
+                            Write-Output "Connect-VIServerWithSecret -Server $vcserver -Credential <...> -Vault $Vault (one-time, no SaveCredentials)"
+                            Connect-VIServerWithSecret -Server $vcserver -Credential $cred -Vault $Vault `
                                 -WarningAction SilentlyContinue -ErrorAction Stop
                             $connectionSucceeded = $true
                         }
@@ -365,12 +365,12 @@ Function VIConnectLegacy {
                     if ($connectionSucceeded) {
                         if ($UpdatePassword) {
                             try {
-                                Write-Output "Updating VICredentialStore entry for $vcserver at vcuser"
+                                Write-Output "Updating VICredentialStore entry for $vcserver / $vcuser"
                                 New-VICredentialStoreItem -Host $vcserver -User $vcuser -Password ($cred.GetNetworkCredential().Password) `
                                     -ErrorAction SilentlyContinue | Out-Null
                             }
                             catch {
-                                Write-Warning "Failed to update VICredentialStore item for $vcserver at {vcuser}: $($_.Exception.Message)"
+                                Write-Warning "Failed to update VICredentialStore item for $vcserver / $vcuser: $($_.Exception.Message)"
                             }
                         }
                         else {

@@ -84,12 +84,13 @@ function New-VISecret {
         $params = @{
             "Name" = "VISecret|"+$server+"|"+$User            
         }
-         if ($password) {
-            $params += @{"Secret" = $password} 
+        if ($password) {
+            $params += @{"Secret" = $password}
         } elseif ($secureStringPassword) {
             $params += @{"SecureStringSecret" = $secureStringPassword}
-        } elseif ($Vault) {
-            $params += @{"Vault" = $Vault} 
+        }
+        if ($Vault) {
+            $params += @{"Vault" = $Vault}
         }
         Set-Secret @params
     }
@@ -135,9 +136,10 @@ function Get-VISecret {
             "Name" = "VISecret|"+$server+"|"+$User            
         }
         if ($AsPlainText.IsPresent) {
-            $params += @{"AsPlainText" = $AsPlainText.ToBool()} 
-        } elseif ($Vault) {
-            $params += @{"Vault" = $Vault} 
+            $params += @{"AsPlainText" = $AsPlainText.ToBool()}
+        }
+        if ($Vault) {
+            $params += @{"Vault" = $Vault}
         }
         Get-Secret @params        
     }
@@ -252,6 +254,7 @@ function Connect-VIServerWithSecret {
         [string]$Server,        
         [string]$User,
         [string]$Password,
+        [securestring]$SecureStringPassword,
         [pscredential]$Credential,
         [switch]$AllLinked,
         [switch]$Force,
@@ -271,8 +274,12 @@ function Connect-VIServerWithSecret {
             }
         }
 
-        if ((-not [string]::IsNullOrWhiteSpace($User) -or -not [string]::IsNullOrWhiteSpace($Password)) -and $Credential) {
-            Throw "User/Password and Credential parameters cannot be both specified at the same time"
+        if ($Credential -and (-not [string]::IsNullOrWhiteSpace($User) -or -not [string]::IsNullOrWhiteSpace($Password) -or $SecureStringPassword)) {
+            Throw "Credential cannot be combined with User, Password, or SecureStringPassword parameters"
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($Password) -and $SecureStringPassword) {
+            Throw "Password and SecureStringPassword parameters cannot be both specified at the same time"
         }
     }
 
@@ -289,8 +296,9 @@ function Connect-VIServerWithSecret {
         if ($Port) {
             $params += @{"Port" = $Port}
         }
-        if ($User) {
-            if (-not $Password) {
+        if (-not $Credential) {
+            if ([string]::IsNullOrWhiteSpace($Password) -and (-not $SecureStringPassword)) {
+                # Fetch secret from vault
                 if ($Vault) {
                     $secret = Get-Secret -Name ("VISecret|"+$server+"|"+$User) -Vault $Vault -ErrorAction SilentlyContinue
                 } else {
@@ -302,7 +310,11 @@ function Connect-VIServerWithSecret {
                 $Credential = New-Object System.Management.Automation.PSCredential ($User, $secret)
             }
             else {
-                $securePass = ConvertTo-SecureString -String $Password -AsPlainText -Force
+                if ($SecureStringPassword) {
+                    $securePass = $SecureStringPassword
+                } else {
+                    $securePass = ConvertTo-SecureString -String $Password -AsPlainText -Force
+                }
                 $Credential = New-Object System.Management.Automation.PSCredential ($User, $securePass)
             }
         }
@@ -311,7 +323,15 @@ function Connect-VIServerWithSecret {
         if ($SaveCredentials) {
             if ($?) {
                 # Only update SecretVault when the connection actually succeeded
-                New-VISecret -Server $Server -User $User -SecureStringPassword $Credential.Password -Vault $Vault
+                $effectiveUser = $User
+                if ([string]::IsNullOrWhiteSpace($effectiveUser) -and $Credential) {
+                    $effectiveUser = $Credential.UserName
+                }
+                if ([string]::IsNullOrWhiteSpace($effectiveUser)) {
+                    Write-Warning "Cannot determine effective user for SecretVault update. Skipping."
+                } else {
+                    New-VISecret -Server $Server -User $effectiveUser -SecureStringPassword $Credential.Password -Vault $Vault
+                }
             }
             else {
                 Write-Warning "Skipping SecretVault update because Connect-VIServer did not succeed."
