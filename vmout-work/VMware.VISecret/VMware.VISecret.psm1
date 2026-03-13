@@ -278,7 +278,7 @@ function Connect-VIServerWithSecret {
             Throw "Credential cannot be combined with User, Password, or SecureStringPassword parameters"
         }
 
-        if (-not [string]::IsNullOrWhiteSpace($Password) -and $SecureStringPassword) {
+        if ($SecureStringPassword -and -not [string]::IsNullOrWhiteSpace($Password)) {
             Throw "Password and SecureStringPassword parameters cannot be both specified at the same time"
         }
     }
@@ -297,31 +297,38 @@ function Connect-VIServerWithSecret {
             $params += @{"Port" = $Port}
         }
         if (-not $Credential) {
-            if ([string]::IsNullOrWhiteSpace($Password) -and (-not $SecureStringPassword)) {
-                # Fetch secret from vault
+            if (-not $Password -and -not $SecureStringPassword) {
+            # Password was not given in any form
                 if ($Vault) {
                     $secret = Get-Secret -Name ("VISecret|"+$server+"|"+$User) -Vault $Vault -ErrorAction SilentlyContinue
-                } else {
+                }
+                else {
                     $secret = Get-Secret -Name ("VISecret|"+$server+"|"+$User) -ErrorAction SilentlyContinue
                 }
+
                 if (-not $secret) {
                     Throw "No password has been found for this server and user in the password vault"
                 }
+
                 $Credential = New-Object System.Management.Automation.PSCredential ($User, $secret)
             }
+            elseif ($SecureStringPassword) {
+                $securePass = $SecureStringPassword
+                $Credential = New-Object System.Management.Automation.PSCredential ($User, $securePass)
+            }
             else {
-                if ($SecureStringPassword) {
-                    $securePass = $SecureStringPassword
-                } else {
-                    $securePass = ConvertTo-SecureString -String $Password -AsPlainText -Force
-                }
+            # Plain password
+                $securePass = ConvertTo-SecureString -String $Password -AsPlainText -Force
                 $Credential = New-Object System.Management.Automation.PSCredential ($User, $securePass)
             }
         }
         $params += @{"Credential" = $Credential}
+        $connectionSucceeded = $false
         Connect-VIServer @params
+        if ($?) { $connectionSucceeded = $true }
+
         if ($SaveCredentials) {
-            if ($?) {
+            if ($connectionSucceeded) {
                 # Only update SecretVault when the connection actually succeeded
                 $effectiveUser = $User
                 if ([string]::IsNullOrWhiteSpace($effectiveUser) -and $Credential) {
@@ -329,8 +336,22 @@ function Connect-VIServerWithSecret {
                 }
                 if ([string]::IsNullOrWhiteSpace($effectiveUser)) {
                     Write-Warning "Cannot determine effective user for SecretVault update. Skipping."
-                } else {
-                    New-VISecret -Server $Server -User $effectiveUser -SecureStringPassword $Credential.Password -Vault $Vault
+                }
+                else {
+                    $credSaveSucceeded = $false
+                    try {
+                        New-VISecret -Server $Server -User $effectiveUser -SecureStringPassword $Credential.Password -Vault $Vault
+                        if ($?) { $credSaveSucceeded = $true }
+                        if ($credSaveSucceeded) {
+                            Write-Output "SecretVault entry for $effectiveUser / $Server has been updated successfully in vault '$Vault'."
+                        }
+                        else {
+                            Write-Verbose "SecretVault update for $effectiveUser / $Server in vault '$Vault' may have failed. Check vault contents."
+                        }
+                    }
+                    catch {
+                        Write-Warning "Failed to update SecretVault entry for $effectiveUser / $Server in vault '$Vault': $($_.Exception.Message)"
+                    }
                 }
             }
             else {
