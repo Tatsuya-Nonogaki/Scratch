@@ -14,17 +14,17 @@ $vcuser  = 'Administrator@vsphere.local'
 #   - It is not recommended for production site from a security perspective.
 #$vcpasswd = 'ChangeMe!'
 
-# Optional: Legacy VICredentialStore mode
-#   - If set to positive (true/True/yes/Yes) and $vcpasswd is empty,
-#     script uses Legacy VICredentialStore mode by default,
-#     so script's option "-Legacy" can be omitted at each run.
-#$Legacy = 'true'
+# Optional: Legacy VICredentialStore mode as default
+#   - If set to $true and $vcpasswd is empty, script uses Legacy
+#     VICredentialStore mode by default, so you can avoid specifying
+#     "-Legacy" switch on every run.
+#$Legacy = $true
 #   - The password for $vcuser@$vcserver will be prompted at the first
 #     login attempt and stored in the VICredentialStore if the login is
 #     successful.
 
 # When using SecretStore / VISecret credential management mode:
-#   - Keep $vcpasswd line commented out and set $Legacy to negative or
+#   - Keep $vcpasswd line commented out and set $Legacy to $false or
 #     comment it out either.
 #   - Install the Microsoft.PowerShell.SecretManagement and
 #     Microsoft.PowerShell.SecretStore modules if they are missing
