@@ -18,7 +18,7 @@ $vcuser  = 'Administrator@vsphere.local'
 #   - If set to positive (true/True/yes/Yes) and $vcpasswd is empty,
 #     script uses Legacy VICredentialStore mode by default,
 #     so script's option "-Legacy" can be omitted at each run.
-#$Legacy = true
+#$Legacy = 'true'
 #   - The password for $vcuser@$vcserver will be prompted at the first
 #     login attempt and stored in the VICredentialStore if the login is
 #     successful.
