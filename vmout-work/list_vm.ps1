@@ -21,6 +21,8 @@
   If specified and $vcpasswd is not set in settings.ps1, the script tries to
   connect to vCenter using legacy VICredentialStore mechanism. Otherwise,
   modern SecretStore / VISecret is assumed.
+  Instead of specifying this switch on every run, you can set the $Legacy
+  parameter in settings.ps1 to $true to use legacy mode by default.
 
  .PARAMETER UpdatePassword
   If no valid credential was found in non-plain mode connection, only at the
@@ -54,6 +56,15 @@ if (-Not (Test-Path "$scriptdir\settings.ps1")) {
 }
 Write-Verbose -Message "Reading base settings from $scriptdir\settings.ps1"
 . $scriptdir\settings.ps1
+
+# Resolve Legacy mode between script switch and settings file
+$useLegacy = $false
+# Respect the script switch primarily even when '-Legacy:$false' is specified
+if ($PSBoundParameters.ContainsKey('Legacy')) {
+    $useLegacy = [bool]$Legacy
+} elseif ($script:Legacy) {
+    $useLegacy = [bool]$script:Legacy
+}
 
 if ($OutPath) {
     $PathOut = $OutPath
@@ -172,7 +183,7 @@ if (-Not (get-module VMware.VimAutomation.Core)) {
     Import-Module VMware.VimAutomation.Core -ErrorAction SilentlyContinue
 }
 
-if ($Legacy) {
+if ($useLegacy) {
     VIConnectLegacy
 } else {
     VIConnect
