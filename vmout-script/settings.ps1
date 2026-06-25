@@ -7,7 +7,9 @@ $vcport = 443
 # vCenter login user
 #   - $vcuser should normally NOT be commented out.
 #   - This script expects a user name to always be provided.
-$vcuser  = 'Administrator@vsphere.local'
+#   - For better compatibility with legacy VICredentialStore environments,
+#     using lowercase is recommended.
+$vcuser  = 'administrator@vsphere.local'
 
 # Optional: vCenter password (plain text)
 #   - If set, the script uses plain password mode:
